@@ -11,6 +11,7 @@ scikit-learn = "*"
 matplotlib = "*"
 seaborn = "*"
 missingno = "*"
+xlrd = "*"
 
 [dev-packages]
 
