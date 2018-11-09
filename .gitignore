@@ -1,0 +1,11 @@
+# latex files
+*.pdf
+*.png
+!boxs-loop.png
+*.out
+*.log
+*.aux
+*.ipynb_checkpoints
+.env
+data/*.csv
+data/*.xlsx
