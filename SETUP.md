@@ -10,6 +10,7 @@ If you're not familiar with Pipenv, you can learn about it [here](https://pipenv
 
 To start, in your project folder run:
 
+	pipenv --python 3.6.5
 	pipenv run pip install pip==18.0
 	pipenv install
 

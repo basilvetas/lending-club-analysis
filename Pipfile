@@ -12,10 +12,10 @@ matplotlib = "*"
 seaborn = "*"
 missingno = "*"
 xlrd = "*"
-tensorflow = {file = "https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-1.9.0-py3-none-any.whl"}
 edward = "*"
+tensorflow = "==1.7"
 
 [dev-packages]
 
 [requires]
-python_version = "3.7"
+python_version = "3.6"
