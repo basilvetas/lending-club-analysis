@@ -4,6 +4,7 @@ from timeit import default_timer as timer
 import glob
 import numpy as np
 import pandas as pd
+from sklearn import preprocessing
 
 cache_path = f'{getcwd()}/cache/'
 data_path = f'{getcwd()}/data/'
@@ -49,7 +50,7 @@ def load_dataframe():
 	else:
 		print(f'Loading raw data from hdf5 cache...')
 		df_raw = pd.read_hdf(df_raw_cache, 'df_raw')
-		print(f'Fetching raw data from cache took {timer() - start:.2f} seconds')
+		print(f'Fetching raw data took {timer() - start:.2f} seconds')
 
 	print(df_raw.dtypes)
 	print(f'''Retrieved {df_raw.shape[0]:,} rows, {df_raw.shape[1]} columns''')
@@ -69,22 +70,20 @@ def preprocess(df):
 	start = timer()
 	if not exists(df_pre_cache):
 		print(f'Preprocessing data...')
-		# drop null and remove non-digits from term
-		df.dropna(subset=['term'], inplace=True)
-		df.term = df.term.str.replace(r'\D+', '').astype(int)
 
-		# convert date fields to datetime and extract age
-		df.issue_d = pd.to_datetime(df.issue_d)
-		q4_startdate = pd.Timestamp('2018-10-01 00:00:00')
-		df['age_in_days'] = q4_startdate - df.issue_d
-		df['age_in_months'] = (q4_startdate.to_period('M') - df.issue_d.dt.to_period('M')).astype(int)
+		# rename the columns
+		df.rename(columns={'MOB': 'age_of_loan', 'PERIOD_END_LSTAT': 'loan_status', 'LOAN_ID': 'id'}, inplace=True)
 
-		# (pd.to_datetime(df.MONTH).dt.to_period('M') - pd.to_datetime(df.IssuedDate).dt.to_period('M')).astype(int)
+		# drop non-numeric columns and encode loan_status
+		le = preprocessing.LabelEncoder()
+		df['loan_status'] = le.fit_transform(df.loan_status)
+		df['term'] = le.fit_transform(df.term)
 
-		df.to_hdf(df_pre_cache, 'df_pre', mode='w')
+		store = pd.HDFStore(df_pre_cache)
+		store.append('df_pre', df)
 		print(f'Preprocessing and caching took {timer() - start:.2f} seconds')
 	else:
-		print(f'Loading preprocessed data from cache...')
+		print(f'Loading preprocessed data from hdf5 cache...')
 		df = pd.read_hdf(df_pre_cache, 'df_pre')
 		print(f'Fetching preprocessed data took {timer() - start:.2f} seconds')
 
