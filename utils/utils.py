@@ -43,6 +43,9 @@ def load_dataframe():
 		# csv_files = glob.glob(join(data_path, '*.csv'))
 		# df_raw = pd.concat((pd.read_csv(f, header=1, low_memory=False) for f in csv_files))
 		# df_raw.to_hdf(df_raw_cache, 'df_raw', mode='w')
+
+		# rename the columns
+		df_raw.rename(columns={'MOB': 'age_of_loan', 'PERIOD_END_LSTAT': 'loan_status', 'LOAN_ID': 'id'}, inplace=True)
 		store = pd.HDFStore(df_raw_cache)
 		store.append('df_raw', df_raw)
 
@@ -71,10 +74,7 @@ def preprocess(df):
 	if not exists(df_pre_cache):
 		print(f'Preprocessing data...')
 
-		# rename the columns
-		df.rename(columns={'MOB': 'age_of_loan', 'PERIOD_END_LSTAT': 'loan_status', 'LOAN_ID': 'id'}, inplace=True)
-
-		# drop non-numeric columns and encode loan_status
+		# encode loan_status and term
 		le = preprocessing.LabelEncoder()
 		df['loan_status'] = le.fit_transform(df.loan_status)
 		df['term'] = le.fit_transform(df.term)
