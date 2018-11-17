@@ -50,8 +50,8 @@ def load_dataframe():
 
 		# rename the columns
 		df_raw.rename(columns={'MOB': 'age_of_loan', 'PERIOD_END_LSTAT': 'loan_status', 'LOAN_ID': 'id'}, inplace=True)
-		store = pd.HDFStore(df_raw_cache)
-		store.append('df_raw', df_raw)
+		with pd.HDFStore(df_raw_cache, mode='w') as store:
+			store.append('df_raw', df_raw, data_columns=df_raw.columns, format='table')
 
 		print(f'Fetching and caching raw data took {timer() - start:.2f} seconds')
 	else:
@@ -83,8 +83,9 @@ def preprocess(df):
 		df['loan_status'] = le.fit_transform(df.loan_status)
 		df['term'] = le.fit_transform(df.term)
 
-		store = pd.HDFStore(df_pre_cache)
-		store.append('df_pre', df)
+		with pd.HDFStore(df_pre_cache, mode='w') as store:
+			store.append('df_pre', df, data_columns= df.columns, format='table')
+
 		print(f'Preprocessing and caching took {timer() - start:.2f} seconds')
 	else:
 		print(f'Loading preprocessed data from hdf5 cache...')
