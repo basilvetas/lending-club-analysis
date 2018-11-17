@@ -35,7 +35,11 @@ def load_dataframe():
 	start = timer() # cache saves us over a minute
 	if not exists(df_raw_cache):
 		print(f'Loading raw data from csv...')
-		df_raw = pd.read_csv(join(data_path, 'PMTHIST_ALL_201811.csv'), usecols=dtypes.keys(), dtype=dtypes)
+		try:
+			df_raw = pd.read_csv(join(data_path, 'PMTHIST_ALL_201811.csv'), usecols=dtypes.keys(), dtype=dtypes)
+		except Exception:
+			# deal with the two versions, temporary
+			df_raw = pd.read_csv(join(data_path, 'PMTHIST_INVESTOR_201811.csv'), usecols=dtypes.keys(), dtype=dtypes)
 		# chunksize = 1e6
 		# for chunk in pd.read_csv(, chunksize=chunksize):
 		# 	process(chunk)
