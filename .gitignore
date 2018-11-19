@@ -121,7 +121,7 @@ dmypy.json
 *.out
 *.log
 *.aux
-data/*.csv
-data/*.xlsx
-cache/*.pkl
-cache/*.hdf
+**/data/*.csv
+**/data/*.xlsx
+**/cache/*.pkl
+**/cache/*.hdf

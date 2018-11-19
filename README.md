@@ -6,4 +6,4 @@ You will produce an 8-page final report and present your findings to the class i
 
 # Box's Loop
 
-![Box's Loop](boxs-loop.png)
+![Box's Loop](final-project/resources/boxs-loop.png)

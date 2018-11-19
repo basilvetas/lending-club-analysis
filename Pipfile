@@ -15,6 +15,7 @@ xlrd = "*"
 edward = "*"
 tensorflow = "==1.7"
 tables = "*"
+"pytest-flake8" = "*"
 
 [dev-packages]
 
