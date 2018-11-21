@@ -25,17 +25,20 @@ import tf_distribution_util as util
 # Trying this, from the Issue where they decided to implement broadcast_to:
 # (https://github.com/tensorflow/tensorflow/issues/14509)
 
+# TODO sample_n not working
 def custom_broadcast_to(tensor, shape):
+  print(tensor)
   return tensor + tf.zeros(dtype=tensor.dtype, shape=shape)
 
 tf.broadcast_to = custom_broadcast_to
 
+from edward.models import RandomVariable
 
 __all__ = [
     "HiddenMarkovModel",
 ]
 
-class HiddenMarkovModel(distribution.Distribution):
+class HiddenMarkovModel(RandomVariable, distribution.Distribution):
   """Hidden Markov model distribution.
 
   The `HiddenMarkovModel` distribution implements a (batch of) hidden
