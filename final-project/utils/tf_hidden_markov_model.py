@@ -19,6 +19,18 @@ import tf_seed_stream as seed_stream
 # this submodule does exist but doesn't have what we need... so add it ourselves:
 import tf_distribution_util as util
 
+# OTHER FIXED NEEDED:
+# we need to use a new op tf.broadcast_to, but that's harder to port
+# since tensorflow ops are C++ code...
+# Trying this, from the Issue where they decided to implement broadcast_to:
+# (https://github.com/tensorflow/tensorflow/issues/14509)
+
+def custom_broadcast_to(tensor, shape):
+  return tensor + tf.zeros(dtype=tensor.dtype, shape=shape)
+
+tf.broadcast_to = custom_broadcast_to
+
+
 __all__ = [
     "HiddenMarkovModel",
 ]
