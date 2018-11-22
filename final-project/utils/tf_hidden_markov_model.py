@@ -38,7 +38,7 @@ __all__ = [
     "HiddenMarkovModel",
 ]
 
-class HiddenMarkovModel(RandomVariable, distribution.Distribution):
+class distribution_HiddenMarkovModel(distribution.Distribution):
   """Hidden Markov model distribution.
 
   The `HiddenMarkovModel` distribution implements a (batch of) hidden
@@ -267,7 +267,7 @@ class HiddenMarkovModel(RandomVariable, distribution.Distribution):
                 self._observation_distribution.batch_shape[:-1]))
 
       # pylint: disable=protected-access
-      super(HiddenMarkovModel, self).__init__(
+      super(distribution_HiddenMarkovModel, self).__init__(
           dtype=self._observation_distribution.dtype,
           reparameterization_type=tf.distributions.NOT_REPARAMETERIZED,
           validate_args=validate_args,
@@ -630,3 +630,7 @@ def _extract_log_probs(num_states, dist):
                                  tf.ones_like(dist.batch_shape_tensor())],
                                 axis=0))
   return util.move_dimension(dist.log_prob(states), 0, -1)
+
+class HiddenMarkovModel(RandomVariable, distribution_HiddenMarkovModel):
+    def __init__(self, *args, **kwargs):
+        RandomVariable.__init__(self, *args, **kwargs)
