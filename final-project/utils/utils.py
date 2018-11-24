@@ -143,7 +143,7 @@ def split_data(df):
 
 	start = timer()
 	if not exists(df_split_cache):
-		print('Formatting and splitting data...')
+		print('Pivoting and splitting data...')
 		x_data = df.pivot(index='id', columns='age_of_loan', values='loan_status')
 
 		# drop where 0 column is not null - this might be a data error, then drop the 0 column
@@ -160,11 +160,13 @@ def split_data(df):
 			store.append('train', x_train, format='table')
 			store.append('test', x_test, format='table')
 
-		print(f'Formatting, splitting and caching took {timer() - start:.2f} seconds')
+		print(f'Pivoting, splitting and caching took {timer() - start:.2f} seconds')
 	else:
-		print(f'Loading split data from hdf5 cache...')
+		print(f'Loading training and test data from hdf5 cache...')
 		x_train = pd.read_hdf(df_split_cache, 'train')
 		x_test = pd.read_hdf(df_split_cache, 'test')
 		print(f'Fetching training and test data took {timer() - start:.2f} seconds')
 
+	print(f'''Training on {x_train.shape[0]:,} rows, {x_train.shape[1]} columns''')
+	print(f'''Testing on {x_test.shape[0]:,} rows, {x_test.shape[1]} columns''')
 	return x_train, x_test
