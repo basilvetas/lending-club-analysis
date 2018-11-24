@@ -5,7 +5,7 @@ import tensorflow as tf
 import edward as ed
 from edward.models import Bernoulli, Categorical, Normal, Empirical, Dirichlet, Multinomial
 
-from utils.utils import reset_axes
+from utils.utils import pretty_matrix, get_cache_or_execute
 
 def generator(df, batch_size):
   """ Generate batches of data from df based on batch_size """
@@ -34,7 +34,7 @@ def compute_mle(matrix):
 		if n_i_all != 0:
 			transitions_mle[i,:] *= (1/n_i_all)
 
-	return reset_axes(pd.DataFrame(np.round(transitions_mle, 2)))
+	return pretty_matrix(pd.DataFrame(np.round(transitions_mle, 2)))
 
 
 def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
@@ -53,7 +53,7 @@ def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
 		inference.run(n_iter=20000)
 		inferred_matrix = pd.DataFrame(sess.run(T))
 
-	return reset_axes(inferred_matrix)
+	return pretty_matrix(inferred_matrix)
 
 
 def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
@@ -61,7 +61,7 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size)
 	data = generator(x_data, batch_size)
 
 	n_batch = int(x_data.shape[0] / batch_size)
-	n_epoch = 5
+	n_epoch = 100
 
 	qpi_0 = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones(n_states))))
 	qpi_T = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones([n_states, n_states]))))
@@ -81,5 +81,5 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size)
 
 		inferred_matrix = pd.DataFrame(sess.run(pi_T))
 
-	return reset_axes(inferred_matrix)
+	return pretty_matrix(inferred_matrix)
 

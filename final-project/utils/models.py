@@ -6,17 +6,12 @@ import tensorflow as tf
 import edward as ed
 from edward.models import Bernoulli, Categorical, Normal, Empirical, Dirichlet, Multinomial
 
-from utils.utils import reset_axes
-
-cache_path = join(dirname(realpath(__file__)), '../cache/')
+from utils.utils import pretty_matrix, get_cache_or_execute
 
 
 def build_mle_matrix(df):
 	""" return transition matrix based on loan term and age of loan """
-	transition_matrix_cache = join(cache_path, 'transition_matrix.hdf')
-
-	start = timer()
-	if not exists(transition_matrix_cache):
+	def function(df):
 		print('Building transition matrix...')
 
 		df['previous_month'] = df.age_of_loan - 1
@@ -34,19 +29,10 @@ def build_mle_matrix(df):
 				print(f'Filling in empty column {i}...')
 				transition_matrix[i] = 0
 
-		transition_matrix = reset_axes(transition_matrix)
+		return pretty_matrix(transition_matrix)
 
-		print(f'Caching...')
-		with pd.HDFStore(transition_matrix_cache, mode='w') as store:
-			store.append('matrix', transition_matrix, format='table')
-
-		print(f'Building transition matrix took {timer() - start:.2f} seconds')
-	else:
-		print(f'Loading transition matrix from hdf5 cache...')
-		transition_matrix = pd.read_hdf(transition_matrix_cache, 'matrix')
-		print(f'Fetching transition matrix took {timer() - start:.2f} seconds')
-
-	return transition_matrix
+	kwargs = { 'format': 'table' }
+	return get_cache_or_execute('transitions', function, df, **kwargs)
 
 
 def build_mc_no_priors(n_states, chain_len):
