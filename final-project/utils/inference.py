@@ -24,6 +24,8 @@ def compute_mle(matrix):
 
 def infer_matrix_no_priors(x_data, x, T, n_states, chain_len, **kwargs):
 	""" runs variational inference given model inputs """
+
+	# posteriors
 	qx = [Categorical(
 		probs=tf.nn.softmax(tf.Variable(tf.ones(n_states)))) for _ in range(chain_len)]
 

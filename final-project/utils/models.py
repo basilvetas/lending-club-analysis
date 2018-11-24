@@ -63,7 +63,7 @@ def build_markov_chain_no_priors(n_states, chain_len):
 	# create transition matrix for all other transitions after x_0
 	T = tf.nn.softmax(tf.Variable(tf.random_uniform([n_states, n_states])), axis=0)
 
-	# model the chain
+	# model the chain priors
 	x = []
 	for _ in range(chain_len):
 		x_tm1 = x[-1] if x else x_0
