@@ -30,6 +30,7 @@ dtypes = {'LOAN_ID': int,
 
 parse_dates = ['RECEIVED_D', 'Month', 'IssuedDate']
 
+
 def load_dataframe():
 	""" we cache the df for faster dev workflow """
 	df_raw_cache = join(cache_path, 'df_raw.hdf')
@@ -56,9 +57,9 @@ def load_dataframe():
 		df_raw = pd.read_hdf(df_raw_cache, 'df_raw')
 		print(f'Fetching raw data took {timer() - start:.2f} seconds')
 
-	print(df_raw.dtypes)
 	print(f'''Retrieved {df_raw.shape[0]:,} rows, {df_raw.shape[1]} columns''')
 	return df_raw
+
 
 def load_data_dic():
 	""" load data dictionary """
@@ -67,60 +68,35 @@ def load_data_dic():
 	print(f'''Retrieved {dic_df.shape[0]:,} fields''')
 	return dic_df
 
-def transition_matrix(df):
-	""" return transition matrix based on loan term and age of loan """
-	transition_matrix_cache = join(cache_path, 'transition_matrix.hdf')
 
-	start = timer()
-	if not exists(transition_matrix_cache):
-		print('Building transition matrix...')
-
-		df['previous_month'] = df.age_of_loan - 1
-		transitions =  pd.merge(df, df, left_on=['id', 'age_of_loan'], right_on=['id', 'previous_month'])
-		transition_matrix = pd.crosstab(transitions['loan_status_x'], transitions['loan_status_y'])
-
-		# if there were no transitions for given state, it will be missing so fill it in
-		for i in range(df.loan_status.unique().shape[0]):
-			if i not in transition_matrix.index:
-				# if no row, create it and set to 0:
-				print(f'Filling in empty row {i}...')
-				transition_matrix.loc[i] = 0
-			if i not in transition_matrix.columns:
-				# if no column, create it and set to 0:
-				print(f'Filling in empty column {i}...')
-				transition_matrix[i] = 0
-
-		transition_matrix = relabel_axes(transition_matrix)
-
-		print(f'Caching...')
-		with pd.HDFStore(transition_matrix_cache, mode='w') as store:
-			store.append('matrix', transition_matrix, data_columns=transition_matrix.columns, format='table')
-
-		print(f'Building transition matrix took {timer() - start:.2f} seconds')
-	else:
-		print(f'Loading transition matrix from hdf5 cache...')
-		transition_matrix = pd.read_hdf(transition_matrix_cache, 'matrix')
-		print(f'Fetching transition matrix took {timer() - start:.2f} seconds')
-
-	return transition_matrix
-
-def relabel_axes(matrix):
+def reset_axes(matrix):
 	"""
-	for a given input nxn matrix as pandas dataframe,
+	for a given input nxn matrix as pandas dataframe, deletes axis names,
 	sorts and renames indices and columns using our mapper
 	"""
+
+	# remove index names
+	del matrix.index.name
+	matrix = matrix.T
+	del matrix.index.name
+	matrix = matrix.T
+
+	# sort axes
 	matrix.sort_index(axis=0, inplace=True)
 	matrix.sort_index(axis=1, inplace=True)
+
+	# map loan status names
 	matrix.rename(columns=loan_status_mapping, inplace=True)
 	matrix.rename(index=loan_status_mapping, inplace=True)
 
 	return matrix
 
+
 def preprocess(df):
 	""" preprocess and cache df: clean fields and extract features """
 	df_pre_cache = join(cache_path, 'df_pre.hdf')
 
-	print(f'Mapping transformations...')
+	print(f'Mapping column names...')
 	le = preprocessing.LabelEncoder()
 
 	# store mapping of loan_status categorial names
@@ -154,7 +130,41 @@ def preprocess(df):
 		df = pd.read_hdf(df_pre_cache, 'df_pre')
 		print(f'Fetching preprocessed data took {timer() - start:.2f} seconds')
 
-	print(df.dtypes)
 	print(f'''Preprocessed {df.shape[0]:,} rows, {df.shape[1]} columns''')
 	return df
 
+
+def split_data(df):
+	"""
+	formats df as pivot table to feed to edward inference and mcmc
+	and also splits data into a training and test set for criticism
+	"""
+	df_split_cache = join(cache_path, 'split.hdf')
+
+	start = timer()
+	if not exists(df_split_cache):
+		print('Formatting and splitting data...')
+		x_data = df.pivot(index='id', columns='age_of_loan', values='loan_status')
+
+		# drop where 0 column is not null - this might be a data error, then drop the 0 column
+		# and fill null values by propogating forward the last valid value
+		x_data = x_data[x_data[0].isnull()].drop(0, axis=1).fillna(axis=1, method='ffill')
+
+		# 90% train, 10% test
+		train = np.random.rand(x_data.shape[0]) < 0.9
+		x_train = x_data[train]
+		x_test = x_data[~train]
+
+		print(f'Caching...')
+		with pd.HDFStore(df_split_cache, mode='w') as store:
+			store.append('train', x_train, format='table')
+			store.append('test', x_test, format='table')
+
+		print(f'Formatting, splitting and caching took {timer() - start:.2f} seconds')
+	else:
+		print(f'Loading split data from hdf5 cache...')
+		x_train = pd.read_hdf(df_split_cache, 'train')
+		x_test = pd.read_hdf(df_split_cache, 'test')
+		print(f'Fetching training and test data took {timer() - start:.2f} seconds')
+
+	return x_train, x_test
