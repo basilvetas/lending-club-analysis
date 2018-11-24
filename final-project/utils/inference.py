@@ -41,6 +41,7 @@ def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
 	""" runs variational inference given mc model without priors """
 
 	def function(x_data, x, T, n_states, chain_len):
+		sess = tf.Session() # create our own session
 		# posteriors
 		qx = [Categorical(
 			probs=tf.nn.softmax(tf.Variable(tf.ones(n_states)))) for _ in range(chain_len)]
@@ -48,23 +49,27 @@ def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
 		inference = ed.KLqp(dict(zip(x, qx)), dict(zip(x, x_data)))
 
 		inferred_matrix = pd.DataFrame() # placeholder
-		with tf.Session() as sess:
-			sess.run(tf.global_variables_initializer())
+		 # set sess as default but doesn't close it so we can re-use it later:
+		with sess.as_default():
+			# sess.run(tf.global_variables_initializer())
 
-			inference.run(n_iter=20000)
+			# inference.run(n_iter=20000)
+			inference.run(n_iter=5000)
 			inferred_matrix = pd.DataFrame(sess.run(T))
 
-		return pretty_matrix(inferred_matrix)
+		return pretty_matrix(inferred_matrix), sess, qx
 
-	args = [x_data, x, T, n_states, chain_len]
-	kwargs = { 'format': 'table' }
-	return get_cache_or_execute('experiment2', function, *args, **kwargs)
+	# args = [x_data, x, T, n_states, chain_len]
+	# kwargs = { 'format': 'table' }
+	# return get_cache_or_execute('experiment2', function, *args, **kwargs)
+	return function(x_data, x, T, n_states, chain_len)
 
 
 def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
 	""" runs variational inference given mc model with priors """
 
 	def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
+		sess = tf.Session()
 		data = generator(x_data, batch_size)
 
 		n_batch = int(x_data.shape[0] / batch_size)
@@ -79,18 +84,18 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size)
 		inference.initialize(n_iter=n_batch * n_epoch, n_samples=5, optimizer=tf.train.AdamOptimizer(0.005))
 
 		inferred_matrix = pd.DataFrame() # placeholder
-		with tf.Session() as sess:
+		with sess.as_default():
 			sess.run(tf.global_variables_initializer())
 			for _ in range(inference.n_iter):
 				x_batch = next(data)
 				info_dict = inference.update(dict(zip(X, x_batch.values.T)))
 				inference.print_progress(info_dict)
 
-			inferred_matrix = pd.DataFrame(sess.run(pi_T))
+			inferred_matrix_mean = pd.DataFrame(sess.run(pi_T.mean()))
 
-		return pretty_matrix(inferred_matrix)
+		return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
 
-	args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
-	kwargs = { 'format': 'table' }
-	return get_cache_or_execute('experiment3', function, *args, **kwargs)
-
+	# args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
+	# kwargs = { 'format': 'table' }
+	# return get_cache_or_execute('experiment3', function, *args, **kwargs)
+	return function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size)
