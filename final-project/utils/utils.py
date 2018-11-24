@@ -72,7 +72,7 @@ def load_data_dic():
 def reset_axes(matrix):
 	"""
 	for a given input nxn matrix as pandas dataframe, deletes axis names,
-	sorts and renames indices and columns using our mapper
+	sorts and renames indices and columns using our mapper and rounds digits
 	"""
 
 	# remove index names
@@ -89,7 +89,7 @@ def reset_axes(matrix):
 	matrix.rename(columns=loan_status_mapping, inplace=True)
 	matrix.rename(index=loan_status_mapping, inplace=True)
 
-	return matrix
+	return matrix.round(2)
 
 
 def preprocess(df):
