@@ -34,7 +34,7 @@ def compute_mle(matrix):
 		if n_i_all != 0:
 			transitions_mle[i,:] *= (1/n_i_all)
 
-	return pretty_matrix(pd.DataFrame(np.round(transitions_mle, 2)))
+	return pretty_matrix(pd.DataFrame(transitions_mle))
 
 
 def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
