@@ -90,10 +90,7 @@ def transition_matrix(df):
 				print(f'Filling in empty column {i}...')
 				transition_matrix[i] = 0
 
-		transition_matrix.sort_index(axis=0, inplace=True)
-		transition_matrix.sort_index(axis=1, inplace=True)
-		transition_matrix.rename(columns=loan_status_mapping, inplace=True)
-		transition_matrix.rename(index=loan_status_mapping, inplace=True)
+		transition_matrix = relabel_axes(transition_matrix)
 
 		print(f'Caching...')
 		with pd.HDFStore(transition_matrix_cache, mode='w') as store:
@@ -106,6 +103,18 @@ def transition_matrix(df):
 		print(f'Fetching transition matrix took {timer() - start:.2f} seconds')
 
 	return transition_matrix
+
+def relabel_axes(matrix):
+	"""
+	for a given input nxn matrix as pandas dataframe,
+	sorts and renames indices and columns using our mapper
+	"""
+	matrix.sort_index(axis=0, inplace=True)
+	matrix.sort_index(axis=1, inplace=True)
+	matrix.rename(columns=loan_status_mapping, inplace=True)
+	matrix.rename(index=loan_status_mapping, inplace=True)
+
+	return matrix
 
 def preprocess(df):
 	""" preprocess and cache df: clean fields and extract features """

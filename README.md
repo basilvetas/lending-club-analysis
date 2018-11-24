@@ -4,6 +4,8 @@ The focus of this course is the final project. The goal is for you to choose a r
 
 You will produce an 8-page final report and present your findings to the class in a short presentation at the end of the term. This project will measure your cumulative understanding of the material while providing you with a supportive environment to try out your new skills. Each student within a group will receive an individual grade, corresponding to their involvement in the project. [Source](http://www.proditus.com/syllabus2018.html)
 
+More instructions [here](https://github.com/akucukelbir/probprog-finalproject)
+
 # Box's Loop
 
 ![Box's Loop](final-project/resources/boxs-loop.png)
