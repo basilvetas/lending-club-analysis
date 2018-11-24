@@ -4,7 +4,7 @@ import pandas as pd
 
 import tensorflow as tf
 import edward as ed
-from edward.models import Bernoulli, Categorical, Normal, Empirical, Multinomial
+from edward.models import Bernoulli, Categorical, Normal, Empirical, Dirichlet, Multinomial
 
 from utils.utils import reset_axes
 
@@ -49,11 +49,12 @@ def build_mle_matrix(df):
 	return transition_matrix
 
 
-def build_markov_chain_no_priors(n_states, chain_len):
+def build_mc_no_priors(n_states, chain_len):
 	"""
 	models a stationary markov chain in edward without priors
 	for more see: https://github.com/blei-lab/edward/issues/450
 	"""
+	tf.reset_default_graph()
 
 	# create x_0, a default beginning state probability
 	# vector with equal probabilties for each state
@@ -71,3 +72,22 @@ def build_markov_chain_no_priors(n_states, chain_len):
 		x.append(x_t)
 
 	return x, T
+
+def build_mc_with_priors(n_states, chain_len, batch_size):
+	""" models a stationary markov chain in edward with Dirichlet priors """
+	tf.reset_default_graph()
+
+	# create default starting state probability vector
+	pi_0 = Dirichlet(tf.ones(n_states))
+	x_0 = Categorical(pi_0, sample_shape=batch_size)
+
+	# transition matrix
+	pi_T = Dirichlet(tf.ones([n_states, n_states]))
+
+	x = []
+	for _ in range(chain_len):
+		x_tm1 = x[-1] if x else x_0
+		x_t = Categorical(probs=tf.gather(pi_T, x_tm1))
+		x.append(x_t)
+
+	return x, pi_0, pi_T
