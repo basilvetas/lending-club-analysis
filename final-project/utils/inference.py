@@ -40,46 +40,57 @@ def compute_mle(matrix):
 def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
 	""" runs variational inference given mc model without priors """
 
-	# posteriors
-	qx = [Categorical(
-		probs=tf.nn.softmax(tf.Variable(tf.ones(n_states)))) for _ in range(chain_len)]
+	def function(x_data, x, T, n_states, chain_len):
+		# posteriors
+		qx = [Categorical(
+			probs=tf.nn.softmax(tf.Variable(tf.ones(n_states)))) for _ in range(chain_len)]
 
-	inference = ed.KLqp(dict(zip(x, qx)), dict(zip(x, x_data)))
+		inference = ed.KLqp(dict(zip(x, qx)), dict(zip(x, x_data)))
 
-	inferred_matrix = pd.DataFrame() # placeholder
-	with tf.Session() as sess:
-		sess.run(tf.global_variables_initializer())
+		inferred_matrix = pd.DataFrame() # placeholder
+		with tf.Session() as sess:
+			sess.run(tf.global_variables_initializer())
 
-		inference.run(n_iter=20000)
-		inferred_matrix = pd.DataFrame(sess.run(T))
+			inference.run(n_iter=20000)
+			inferred_matrix = pd.DataFrame(sess.run(T))
 
-	return pretty_matrix(inferred_matrix)
+		return pretty_matrix(inferred_matrix)
+
+	args = [x_data, x, T, n_states, chain_len]
+	kwargs = { 'format': 'table' }
+	return get_cache_or_execute('experiment2', function, *args, **kwargs)
 
 
 def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
 	""" runs variational inference given mc model with priors """
-	data = generator(x_data, batch_size)
 
-	n_batch = int(x_data.shape[0] / batch_size)
-	n_epoch = 100
+	def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
+		data = generator(x_data, batch_size)
 
-	qpi_0 = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones(n_states))))
-	qpi_T = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones([n_states, n_states]))))
+		n_batch = int(x_data.shape[0] / batch_size)
+		n_epoch = 10
 
-	X = np.array([tf.placeholder(tf.int32, [batch_size]) for _ in range(chain_len)])
+		qpi_0 = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones(n_states))))
+		qpi_T = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones([n_states, n_states]))))
 
-	inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data=dict(zip(x, X)))
-	inference.initialize(n_iter=n_batch * n_epoch, n_samples=5, optimizer=tf.train.AdamOptimizer(0.005))
+		X = np.array([tf.placeholder(tf.int32, [batch_size]) for _ in range(chain_len)])
 
-	inferred_matrix = pd.DataFrame() # placeholder
-	with tf.Session() as sess:
-		sess.run(tf.global_variables_initializer())
-		for _ in range(inference.n_iter):
-			x_batch = next(data)
-			info_dict = inference.update(dict(zip(X, x_batch.values.T)))
-			inference.print_progress(info_dict)
+		inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data=dict(zip(x, X)))
+		inference.initialize(n_iter=n_batch * n_epoch, n_samples=5, optimizer=tf.train.AdamOptimizer(0.005))
 
-		inferred_matrix = pd.DataFrame(sess.run(pi_T))
+		inferred_matrix = pd.DataFrame() # placeholder
+		with tf.Session() as sess:
+			sess.run(tf.global_variables_initializer())
+			for _ in range(inference.n_iter):
+				x_batch = next(data)
+				info_dict = inference.update(dict(zip(X, x_batch.values.T)))
+				inference.print_progress(info_dict)
 
-	return pretty_matrix(inferred_matrix)
+			inferred_matrix = pd.DataFrame(sess.run(pi_T))
+
+		return pretty_matrix(inferred_matrix)
+
+	args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
+	kwargs = { 'format': 'table' }
+	return get_cache_or_execute('experiment3', function, *args, **kwargs)
 
