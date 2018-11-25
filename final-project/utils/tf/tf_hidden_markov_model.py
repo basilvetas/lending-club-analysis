@@ -9,16 +9,16 @@ Adapted to work with our versions of TF and Edward.
 
 # TODO add the copyright back
 
-import tensorflow as tf
+
 # from tensorflow_probability.python.distributions import distribution
 from tensorflow.contrib import distributions as distribution
 # from tensorflow_probability.python.distributions import seed_stream
-import tf_seed_stream as seed_stream 
+import utils.tf.tf_seed_stream as seed_stream 
 
 # from tensorflow_probability.python.internal import distribution_util as util
 # this submodule does exist but doesn't have what we need... so add it ourselves:
-import tf_distribution_util as util
-
+import utils.tf.tf_distribution_util as util
+import tensorflow as tf
 # OTHER FIXED NEEDED:
 # we need to use a new op tf.broadcast_to, but that's harder to port
 # since tensorflow ops are C++ code...
@@ -27,7 +27,6 @@ import tf_distribution_util as util
 
 # TODO sample_n not working
 def custom_broadcast_to(tensor, shape):
-  print(tensor)
   return tensor + tf.zeros(dtype=tensor.dtype, shape=shape)
 
 tf.broadcast_to = custom_broadcast_to

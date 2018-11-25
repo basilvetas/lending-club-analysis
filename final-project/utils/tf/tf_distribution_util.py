@@ -13,10 +13,11 @@ I only left the functions we do need.
 import functools
 import hashlib
 import numpy as np
+# from tensorflow_probability.python.internal import dtype_util
+import utils.tf.tf_dtype_util as dtype_util # fix
 import tensorflow as tf
 
-# from tensorflow_probability.python.internal import dtype_util
-import tf_dtype_util as dtype_util # fix
+
 
 # these are not needed for us:
 # from tensorflow_probability.python.internal import reparameterization

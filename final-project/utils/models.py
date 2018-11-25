@@ -1,12 +1,15 @@
 from os.path import dirname, realpath, join, exists
 from timeit import default_timer as timer
 import pandas as pd
+import numpy as np
 
 import tensorflow as tf
 import edward as ed
 from edward.models import Bernoulli, Categorical, Normal, Empirical, Dirichlet, Multinomial
 
 from utils.utils import pretty_matrix, get_cache_or_execute
+
+from utils.tf.tf_hidden_markov_model import HiddenMarkovModel
 
 
 def build_mle_matrix(df):
@@ -77,3 +80,27 @@ def build_mc_with_priors(n_states, chain_len, batch_size):
 		x.append(x_t)
 
 	return x, pi_0, pi_T
+
+def build_mc_with_priors_2(n_states, chain_len, batch_size):
+    """ models a stationary markov chain in edward with Dirichlet priors """
+    tf.reset_default_graph()
+
+    # create default starting state probability vector
+    pi_0 = Dirichlet(tf.ones(n_states))
+    x_0 = Categorical(pi_0, sample_shape=batch_size)
+
+    # transition matrix
+    pi_T = Dirichlet(tf.ones([n_states, n_states]))
+    transition_distribution = Categorical(probs=pi_T)
+
+    pi_E = np.eye(n_states, dtype=np.float32) # identity matrix
+    emission_distribution = Categorical(probs=pi_E)
+
+    model = HiddenMarkovModel(
+        initial_distribution=x_0,
+        transition_distribution=transition_distribution,
+        observation_distribution=emission_distribution,
+        num_steps=chain_len,
+        sample_shape=batch_size)
+
+    return model, pi_0, pi_T
