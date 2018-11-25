@@ -9,3 +9,7 @@ More instructions [here](https://github.com/akucukelbir/probprog-finalproject)
 # Box's Loop
 
 ![Box's Loop](final-project/resources/boxs-loop.png)
+
+# References
+
+Machine Learning: A Probabilistic Perspective, by Kevin P. Murphy, MIT Press, 2012
