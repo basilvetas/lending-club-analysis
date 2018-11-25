@@ -77,7 +77,7 @@ def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
 	return get_cache_or_execute('experiment2', function, *args, **kwargs)
 
 
-def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, n_samples=10, n_epoch=10, lr=0.005):
+def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, n_samples=10, n_epoch=5, lr=0.005):
 	""" runs variational inference given mc model with priors """
 	def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, **kwargs):
 		sess = tf.Session()
@@ -91,7 +91,7 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size,
 		X = np.array([tf.placeholder(tf.int32, [batch_size]) for _ in range(chain_len)])
 
 		inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data=dict(zip(x, X)))
-		inference.initialize(n_iter=n_batch * n_epoch, n_samples=5, optimizer=tf.train.AdamOptimizer(0.005))
+		inference.initialize(n_iter=n_batch * n_epoch, n_samples=5, optimizer=tf.train.AdamOptimizer(lr))
 
 		saver = tf.train.Saver()
 		inferred_matrix = pd.DataFrame() # placeholder
@@ -104,7 +104,7 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size,
 				info_dict = inference.update(dict(zip(X, x_batch.values.T)))
 				inference.print_progress(info_dict)
 
-			save_path = saver.save(sess, join(cache_path, 'experiment3.ckpt'))
+			save_path = saver.save(sess, join(cache_path, 'experiment2.ckpt'))
 			inferred_matrix = pd.DataFrame(sess.run(qpi_T.mean()))
 
 		return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
@@ -117,43 +117,54 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size,
 			'qpi_T': Dirichlet(tf.nn.softplus(tf.get_variable("qpiT/concentration", [n_states, n_states])))
 		}
 	}
-	return get_cache_or_execute('experiment3', function, *args, **kwargs)
+	return get_cache_or_execute('experiment2', function, *args, **kwargs)
 
 
 def infer_mc_with_priors_2(x_data, model, pi_0, pi_T, n_states, chain_len, batch_size, n_samples=10, n_epoch=1, lr=0.005):
     """ runs variational inference given mc model with priors """
     # TODO needs to be fixed to support caching
-    sess = tf.Session()
-    data = generator(x_data, batch_size)
+    def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, **kwargs):
+        sess = tf.Session()
+        data = generator(x_data, batch_size)
 
-    n_batch = int(x_data.shape[0] / batch_size)
-    # n_epoch = 10
-    # n_epoch = 1
+        n_batch = int(x_data.shape[0] / batch_size)
 
-    # qpi_0 = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones(n_states))))
-    # qpi_T = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones([n_states, n_states]))))
-    qpi_0 = Dirichlet(tf.nn.softplus(tf.get_variable("qpi0/concentration", [n_states])))
-    qpi_T = Dirichlet(tf.nn.softplus(tf.get_variable("qpiT/concentration", [n_states, n_states])))
+        # qpi_0 = Dirichlet(tf.nn.softplus(tf.get_variable("qpi0/concentration", [n_states])))
+        # qpi_T = Dirichlet(tf.nn.softplus(tf.get_variable("qpiT/concentration", [n_states, n_states])))
+        qpi_0 = kwargs['ed_model']['qpi_0']
+        qpi_T = kwargs['ed_model']['qpi_T']
 
-    X = tf.placeholder(tf.int32, [batch_size, chain_len])
+        X = tf.placeholder(tf.int32, [batch_size, chain_len])
 
-    # inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data={model: X})
-    inference = ed.KLqp({pi_0: qpi_0,
-                         pi_T: qpi_T},
-                        data={model: X})
-    inference.initialize(n_iter=n_batch * n_epoch,
-    					 n_samples=n_samples,
-    					 optimizer=tf.train.AdamOptimizer(lr))
-    					 # scale={model: x_data.shape[0]/batch_size}) # doesn't seem to help
-    # inference.initialize(n_iter=n_batch * n_epoch, n_samples=100)
-    inferred_matrix_mean = pd.DataFrame() # placeholder
-    with sess.as_default():
-        sess.run(tf.global_variables_initializer())
-        for _ in range(inference.n_iter):
-            x_batch = next(data)
-            info_dict = inference.update({X: x_batch.values})
-            inference.print_progress(info_dict)
+        # inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data={model: X})
+        inference = ed.KLqp({pi_0: qpi_0,
+                             pi_T: qpi_T},
+                             data={model: X})
+        inference.initialize(n_iter=n_batch * n_epoch,
+                             n_samples=n_samples,
+                             optimizer=tf.train.AdamOptimizer(lr))
+                             # scale={model: x_data.shape[0]/batch_size}) # doesn't seem to help
+        # inference.initialize(n_iter=n_batch * n_epoch, n_samples=100)
+        saver = tf.train.Saver()
+        inferred_matrix = pd.DataFrame() # placeholder
+        with sess.as_default():
+            sess.run(tf.global_variables_initializer())
+            for _ in range(inference.n_iter):
+                x_batch = next(data)
+                info_dict = inference.update({X: x_batch.values})
+                inference.print_progress(info_dict)
 
-        inferred_matrix_mean = pd.DataFrame(sess.run(qpi_T.mean()))
+            save_path = saver.save(sess, join(cache_path, 'experiment3.ckpt'))
+            inferred_matrix = pd.DataFrame(sess.run(qpi_T.mean()))
 
-    return inferred_matrix_mean, sess, qpi_0, qpi_T	
+        return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
+
+    args = [x_data, model, pi_0, pi_T, n_states, chain_len, batch_size]
+    kwargs = {
+        'format': 'table',
+        'ed_model': {
+            'qpi_0': Dirichlet(tf.nn.softplus(tf.get_variable("qpi0/concentration", [n_states]))),
+            'qpi_T': Dirichlet(tf.nn.softplus(tf.get_variable("qpiT/concentration", [n_states, n_states])))
+        }
+    }
+    return get_cache_or_execute('experiment3', function, *args, **kwargs)
