@@ -125,3 +125,5 @@ dmypy.json
 **/data/*.xlsx
 **/cache/*.pkl
 **/cache/*.hdf
+**/cache/*ckpt*
+**/cache/checkpoint

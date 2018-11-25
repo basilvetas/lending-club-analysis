@@ -1,3 +1,4 @@
+from os.path import dirname, realpath, join
 import numpy as np
 import pandas as pd
 
@@ -6,6 +7,8 @@ import edward as ed
 from edward.models import Bernoulli, Categorical, Normal, Empirical, Dirichlet, Multinomial
 
 from utils.utils import pretty_matrix, get_cache_or_execute
+
+cache_path = join(dirname(realpath(__file__)), '../cache/')
 
 def generator(df, batch_size):
   """ Generate batches of data from df based on batch_size """
@@ -43,51 +46,58 @@ def compute_mle(matrix):
 
 def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
 	""" runs variational inference given mc model without priors """
-
-	def function(x_data, x, T, n_states, chain_len):
+	def function(x_data, x, T, n_states, chain_len, **kwargs):
 		sess = tf.Session() # create our own session
 		# posteriors
-		qx = [Categorical(
-			probs=tf.nn.softmax(tf.Variable(tf.ones(n_states)))) for _ in range(chain_len)]
+		qx = kwargs['ed_model']['qx']
 
 		inference = ed.KLqp(dict(zip(x, qx)), dict(zip(x, x_data)))
 
+		saver = tf.train.Saver()
 		inferred_matrix = pd.DataFrame() # placeholder
-		 # set sess as default but doesn't close it so we can re-use it later:
-		with sess.as_default():
-			# sess.run(tf.global_variables_initializer())
 
-			# inference.run(n_iter=20000)
+		# set sess as default but doesn't close it so we can re-use it later:
+		with sess.as_default():
 			inference.run(n_iter=5000)
+
+			save_path = saver.save(sess, join(cache_path, 'experiment2.ckpt'))
 			inferred_matrix = pd.DataFrame(sess.run(T))
 
-		return pretty_matrix(inferred_matrix), sess, qx
+		return pretty_matrix(inferred_matrix), sess, T, qx
 
-	# args = [x_data, x, T, n_states, chain_len]
-	# kwargs = { 'format': 'table' }
-	# return get_cache_or_execute('experiment2', function, *args, **kwargs)
-	return function(x_data, x, T, n_states, chain_len)
+	args = [x_data, x, T, n_states, chain_len]
+	kwargs = {
+	'format': 'table',
+	'ed_model': {
+			'T': T,
+			'qx': [Categorical(
+				probs=tf.nn.softmax(tf.Variable(tf.ones(n_states), name=f'qx_{i}'))) for i in range(chain_len)]
+		}
+	}
+	return get_cache_or_execute('experiment2', function, *args, **kwargs)
 
 
 def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
 	""" runs variational inference given mc model with priors """
-
-	def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size):
+	def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, **kwargs):
 		sess = tf.Session()
 		data = generator(x_data, batch_size)
 
 		n_batch = int(x_data.shape[0] / batch_size)
 		n_epoch = 10
 
-		qpi_0 = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones(n_states))))
-		qpi_T = Dirichlet(tf.nn.softplus(tf.Variable(tf.ones([n_states, n_states]))))
+		qpi_0 = kwargs['ed_model']['qpi_0']
+		qpi_T = kwargs['ed_model']['qpi_T']
 
 		X = np.array([tf.placeholder(tf.int32, [batch_size]) for _ in range(chain_len)])
 
 		inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data=dict(zip(x, X)))
 		inference.initialize(n_iter=n_batch * n_epoch, n_samples=5, optimizer=tf.train.AdamOptimizer(0.005))
 
+		saver = tf.train.Saver()
 		inferred_matrix = pd.DataFrame() # placeholder
+
+		# set sess as default but doesn't close it so we can re-use it later:
 		with sess.as_default():
 			sess.run(tf.global_variables_initializer())
 			for _ in range(inference.n_iter):
@@ -95,11 +105,17 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size)
 				info_dict = inference.update(dict(zip(X, x_batch.values.T)))
 				inference.print_progress(info_dict)
 
-			inferred_matrix_mean = pd.DataFrame(sess.run(pi_T.mean()))
+			save_path = saver.save(sess, join(cache_path, 'experiment3.ckpt'))
+			inferred_matrix = pd.DataFrame(sess.run(qpi_T.mean()))
 
 		return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
 
-	# args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
-	# kwargs = { 'format': 'table' }
-	# return get_cache_or_execute('experiment3', function, *args, **kwargs)
-	return function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size)
+	args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
+	kwargs = {
+		'format': 'table',
+		'ed_model': {
+			'qpi_0': Dirichlet(tf.nn.softplus(tf.Variable(tf.ones(n_states), name='qpi_0'))),
+			'qpi_T': Dirichlet(tf.nn.softplus(tf.Variable(tf.ones([n_states, n_states]), 'qpi_T')))
+		}
+	}
+	return get_cache_or_execute('experiment3', function, *args, **kwargs)
