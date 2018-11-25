@@ -151,4 +151,4 @@ def pretty_matrix(matrix):
 	matrix.rename(columns=loan_status_mapping, inplace=True)
 	matrix.rename(index=loan_status_mapping, inplace=True)
 
-	return matrix.round(2)
+	return matrix.round(6)

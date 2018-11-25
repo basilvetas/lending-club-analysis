@@ -27,14 +27,18 @@ def compute_mle(matrix):
 	""" computes the maximum likelihood estimate for a stationary
 	transition matrix given a matrix of realized transitions data
 	"""
-	transitions_mle = matrix.values.astype(float)
+	transition_matrix = matrix.values.astype(float)
+	mle_matrix = np.empty_like(transition_matrix)
 
-	for i in range(transitions_mle.shape[0]):
-		n_i_all = sum(transitions_mle[i,:]) # count how many i => j for this i and any j
-		if n_i_all != 0:
-			transitions_mle[i,:] *= (1/n_i_all)
+	for j in range(transition_matrix.shape[0]):
+		# total transitions from state j to all other states
+		j_sum = sum(transition_matrix[j,:])
+		for k in range(transition_matrix.shape[1]):
+			# total transitions from state j to state k
+			j_to_k = transition_matrix[j,k]
+			mle_matrix[j,k] = j_to_k/j_sum
 
-	return pretty_matrix(pd.DataFrame(transitions_mle))
+	return pretty_matrix(pd.DataFrame(np.nan_to_num(mle_matrix)))
 
 
 def infer_mc_no_priors(x_data, x, T, n_states, chain_len):
