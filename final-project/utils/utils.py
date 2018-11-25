@@ -1,12 +1,21 @@
+import sys
+from os import remove, environ
 from os.path import dirname, realpath, join, exists
 from timeit import default_timer as timer
+import argparse
+import glob
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
+import tensorflow as tf
 import warnings
 
 # we don't want warnings in our final notebook
 warnings.filterwarnings('ignore')
+
+# hid tensorflow info and warning messages
+environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+tf.logging.set_verbosity(tf.logging.ERROR)
 
 cache_path = join(dirname(realpath(__file__)), '../cache/')
 data_path = join(dirname(realpath(__file__)), '../data/')
@@ -34,10 +43,12 @@ parse_dates = ['RECEIVED_D', 'Month', 'IssuedDate']
 def get_cache_or_execute(name, function, *args, **kwargs):
 	""" Checks for cached df, otherwise runs function to generate df """
 	cached_file = join(cache_path, f'{name}.hdf')
+	ed_model = kwargs.get('ed_model', False)
+	vals = []
 
 	start = timer()
 	if not exists(cached_file):
-		df = function(*args)
+		df, *vals = function(*args, **kwargs)
 		print(f'Caching {name} data...')
 		with pd.HDFStore(cached_file, mode='w') as store:
 			store.append(name, df, **kwargs)
@@ -45,9 +56,23 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 		print(f'Loading {name} data from cache...')
 		df = pd.read_hdf(cached_file, name)
 
-	print(f'''Retrieved {df.shape[0]:,} rows, {df.shape[1]} columns in {timer() - start:.2f} seconds''')
+		if ed_model:
+			print(f'Loading cached edward model...')
+			try:
+				sess = tf.Session()
+				saver = tf.train.Saver()
+				with sess.as_default():
+					saver.restore(sess, join(cache_path, f'{name}.ckpt'))
 
-	return df
+				vals.append(sess)
+				vals.extend(list(ed_model.values()))
+			except tf.errors.NotFoundError as e:
+				print(f'Error: please re-run model and try again.')
+				val = len(list(ed_model.values()))+1
+				return df, (*[None]*val)
+
+	print(f'''Retrieved {df.shape[0]:,} rows, {df.shape[1]} columns in {timer() - start:.2f} seconds''')
+	return df, (*vals)
 
 
 def load_dataframe():
@@ -65,7 +90,7 @@ def load_dataframe():
 		return df
 
 	kwargs = { 'data_columns': True, 'format': 'table' }
-	return get_cache_or_execute('raw', function, **kwargs)
+	return get_cache_or_execute('raw', function, **kwargs)[0]
 
 
 def load_data_dic():
@@ -103,7 +128,7 @@ def preprocess(df):
 		return df
 
 	kwargs = { 'data_columns': True, 'format': 'table' }
-	return get_cache_or_execute('preprocessed', function, df, **kwargs)
+	return get_cache_or_execute('preprocessed', function, df, **kwargs)[0]
 
 
 def split_data(df):
@@ -121,7 +146,7 @@ def split_data(df):
 		return x_data
 
 	kwargs = { 'format': 'table' }
-	x_data = get_cache_or_execute('split', function, df, **kwargs)
+	x_data = get_cache_or_execute('split', function, df, **kwargs)[0]
 
 	# 90% train, 10% test
 	train = np.random.rand(x_data.shape[0]) < 0.9
@@ -151,4 +176,40 @@ def pretty_matrix(matrix):
 	matrix.rename(columns=loan_status_mapping, inplace=True)
 	matrix.rename(index=loan_status_mapping, inplace=True)
 
-	return matrix.round(2)
+	return matrix.round(6)
+
+
+def clear_cache(extensions=['hdf']):
+	""" clears cached files of specified extension types """
+	cached_files = []
+	for ext in extensions:
+		cached_files.extend(glob.glob(join(cache_path, f'*.{ext}*'), recursive=True))
+
+	for file in cached_files:
+		remove(file)
+	return
+
+
+def parse():
+	""" command line arguments """
+	parser = argparse.ArgumentParser(description='')
+
+	parser.add_argument(
+		'--clear_cache',
+		'-c',
+		nargs='+',
+    type=str.lower,
+		metavar='extension',
+		help='Filetypes to clear from cache'
+	)
+
+	return parser.parse_args()
+
+
+if __name__ == '__main__':
+	args = parse()
+	if args.clear_cache:
+		print('Clearing cache...')
+		clear_cache(args.clear_cache)
+
+	sys.exit(0)

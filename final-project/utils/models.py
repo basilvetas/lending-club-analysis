@@ -35,7 +35,7 @@ def build_mle_matrix(df):
 		return pretty_matrix(transition_matrix)
 
 	kwargs = { 'format': 'table' }
-	return get_cache_or_execute('transitions', function, df, **kwargs)
+	return get_cache_or_execute('transitions', function, df, **kwargs)[0]
 
 
 def build_mc_no_priors(n_states, chain_len):
@@ -51,7 +51,7 @@ def build_mc_no_priors(n_states, chain_len):
 	x_0 = Categorical(probs=p)
 
 	# create transition matrix for all other transitions after x_0
-	T = tf.nn.softmax(tf.Variable(tf.random_uniform([n_states, n_states])), axis=0)
+	T = tf.nn.softmax(tf.Variable(tf.random_uniform([n_states, n_states]), name='T'), axis=0)
 
 	# model the chain priors
 	x = []
