@@ -107,7 +107,8 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size,
 			save_path = saver.save(sess, join(cache_path, 'experiment3.ckpt'))
 			inferred_matrix = pd.DataFrame(sess.run(qpi_T.mean()))
 
-		return pretty_matrix(inferred_matrix_mean), sess, qpi_0, qpi_T
+		return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
+
 	args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
 	kwargs = {
 		'format': 'table',
