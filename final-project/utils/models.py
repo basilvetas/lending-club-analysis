@@ -145,3 +145,16 @@ def build_mc_non_stationary(n_states, chain_len, batch_size):
 		x.append(x_t)
 
 	return x, pi_0, pi_T
+
+def build_multinomial(n_states, chain_len, total_counts_per_month):
+	""" models loan counts by one multinomial per timestep """
+	# TODO make batch size
+	tf.reset_default_graph()
+
+	# create default starting state probability vector
+	pi_list = [Dirichlet(tf.ones(n_states)) for _ in range(chain_len)]
+	# now instead of sample_shape we use total_count which is how many times we sample from each categorical
+	# i.e. number of accounts
+	counts = [Multinomial(probs=pi, total_count=float(total_counts_per_month)) for pi in pi_list]
+
+	return pi_list, counts

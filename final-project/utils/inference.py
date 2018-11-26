@@ -214,3 +214,25 @@ def infer_mc_non_stationary(x_data, x, pi_0, pi_T_list, n_states, chain_len, bat
 	# 	}
 	# }
 	# return get_cache_or_execute('experiment4', function, *args, **kwargs)
+
+def infer_counts_multinomial(x_data, pi_list, counts, total_counts_per_month, n_states, chain_len, n_samples=10):
+	""" runs variational inference given mc model with priors, conditioning on position in the chain """
+	# TODO enable caching
+	sess = tf.Session()
+
+	var_names = ["qpi_%s/concentration_" % (str(i),) for i in range(chain_len)]
+	qpi_list = [Dirichlet(1 + tf.nn.softplus(tf.get_variable(name, [n_states]))) for name in var_names]
+
+	# set sess as default but doesn't close it so we can re-use it later:
+	with sess.as_default():
+		inference = ed.KLqp(dict(zip(pi_list, qpi_list)),
+							data=dict(zip(counts, [x_data[i,:] for i in range(chain_len)])))
+		# sess.run(tf.global_variables_initializer())
+		inference.run(n_iter=3000)
+		inferred_probs = [pd.DataFrame(sess.run(pi.mean())) for pi in qpi_list]
+
+	inferred_matrix = np.array([prob.values.reshape(-1) for prob in inferred_probs])
+	inferred_matrix = pd.DataFrame(inferred_matrix)
+	inferred_matrix = pretty_matrix(inferred_matrix) # add column names
+	inferred_matrix = inferred_matrix.reset_index().drop('index', axis=1) # get rid of row names
+	return inferred_matrix, sess, qpi_list

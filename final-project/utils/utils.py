@@ -272,6 +272,17 @@ def parse():
 
     return parser.parse_args()
 
+def get_counts_per_month(df, n_states):
+	"""
+	given a matrix of shape (n_loans, chain_len),
+	computes counts of each status per month
+	to feed into the multinomial model
+	"""
+	chain_len = df.shape[1]
+	value_counts_per_month = [df[i+1].value_counts() for i in range(chain_len)]
+	counts_per_month = np.array([[vc[j] if (j in vc) else 0 for j in range(n_states)]
+									for vc in value_counts_per_month])
+	return counts_per_month
 
 if __name__ == '__main__':
     args = parse()
