@@ -25,8 +25,9 @@ def sample_mle(mle_table, length=36, initial_state='Current'):
 
 def plot_sampled_lengths(sampled_trajectories, true_data):
   """ plots sampled lengths """
-  plt.hist(true_data.groupby('id').size(), bins=36, normed=True, label='True loan lengths');
-  plt.hist([t.shape[0] for t in sampled_trajectories], bins=36, normed=True, label='Sampled loan lengths');
+  plt.figure(figsize=(15,8))
+  plt.hist([true_data.groupby('id').size(), [t.shape[0] for t in sampled_trajectories]],
+             bins=36, normed=True, label=['True loan lengths', 'Sampled loan lengths'])
   plt.legend()
   plt.xlabel('Length (months)')
   plt.ylabel('Number of loans (normalized)')
