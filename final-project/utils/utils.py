@@ -21,14 +21,14 @@ cache_path = join(dirname(realpath(__file__)), '../cache/')
 data_path = join(dirname(realpath(__file__)), '../data/')
 
 loan_statuses = pd.api.types.CategoricalDtype([
-	    	'Charged Off',
-	    	'Current',
-	    	'Default',
-	    	'Fully Paid',
-	    	'In Grace Period',
-	    	'Issued',
-	    	'Late (16-30 days)',
-	    	'Late (31-120 days)'])
+            'Charged Off',
+            'Current',
+            'Default',
+            'Fully Paid',
+            'In Grace Period',
+            'Issued',
+            'Late (16-30 days)',
+            'Late (31-120 days)'])
 
 loan_terms = pd.api.types.CategoricalDtype(['36', '60'])
 
@@ -99,6 +99,12 @@ def load_dataframe(**kwargs):
 
 		# rename the columns
 		df.rename(columns={'MOB': 'age_of_loan', 'PERIOD_END_LSTAT': 'loan_status', 'LOAN_ID': 'id'}, inplace=True)
+
+		# remove outliers: loans that have a status for month 0 (3% of the data)
+		df = df[~(df.age_of_loan == 0)]
+		# remove remaining loans that have status 'Issued',
+		# there are only three of them, with 1 unique observation each:
+		df = df[df.loan_status != 'Issued']
 		return df, None
 
 	kwargs = { 'data_columns': True, 'format': 'table' }
@@ -140,7 +146,7 @@ def preprocess(df, **kwargs):
 
 		return df, None
 
-	kwargs = { 'data_columns': True, 'format': 'table' }
+	kwargs = {'format': 'table' }
 	return get_cache_or_execute('preprocessed', function, df, **kwargs)[0]
 
 
@@ -153,9 +159,8 @@ def split_data(df):
 		print('Pivoting and splitting data...')
 		x_data = df.pivot(index='id', columns='age_of_loan', values='loan_status')
 
-		# drop where 0 column is not null - this might be a data error, then drop the 0 column
-		# and fill null values by propogating forward the last valid value
-		x_data = x_data[x_data[0].isnull()].drop(0, axis=1).fillna(axis=1, method='ffill')
+		# fill null values by propogating forward the last valid value
+		x_data = x_data.fillna(axis=1, method='ffill')
 		return x_data, None
 
 	kwargs = { 'format': 'table' }
@@ -195,7 +200,6 @@ def pretty_matrix(matrix):
 def clear_cache(extensions):
 	""" clears cached files of specified extension types """
 	cached_files = []
-
 	if not extensions:
 		extensions = ['hdf', 'ckpt', 'pkl', 'tmp']
 		cached_files.append(join(cache_path, 'checkpoint'))
@@ -216,13 +220,24 @@ def parse():
 		'--clear_cache',
 		'-c',
 		nargs='*',
-    type=str.lower,
+		type=str.lower,
 		metavar='extension',
 		help='Filetypes to clear from cache'
 	)
 
 	return parser.parse_args()
 
+def get_counts_per_month(df, n_states):
+	"""
+	given a matrix of shape (n_loans, chain_len),
+	computes counts of each status per month
+	to feed into the multinomial model
+	"""
+	chain_len = df.shape[1]
+	value_counts_per_month = [df[i+1].value_counts() for i in range(chain_len)]
+	counts_per_month = np.array([[vc[j] if (j in vc) else 0 for j in range(n_states)]
+									for vc in value_counts_per_month])
+	return counts_per_month
 
 if __name__ == '__main__':
 	args = parse()

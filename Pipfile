@@ -16,6 +16,7 @@ edward = "*"
 tensorflow = "==1.7"
 tables = "*"
 "pytest-flake8" = "*"
+networkx = "*"
 
 [dev-packages]
 
