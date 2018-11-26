@@ -123,7 +123,7 @@ def infer_mc_with_priors(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size,
 def infer_mc_with_priors_2(x_data, model, pi_0, pi_T, n_states, chain_len, batch_size, n_samples=10, n_epoch=1, lr=0.005):
     """ runs variational inference given mc model with priors """
     # TODO needs to be fixed to support caching
-    def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, **kwargs):
+    def function(x_data, x, pi_0, pi_T, n_states, chain_len, batch_size, n_samples, n_epoch, lr, **kwargs):
         sess = tf.Session()
         data = generator(x_data, batch_size)
 
@@ -159,7 +159,7 @@ def infer_mc_with_priors_2(x_data, model, pi_0, pi_T, n_states, chain_len, batch
 
         return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
 
-    args = [x_data, model, pi_0, pi_T, n_states, chain_len, batch_size]
+    args = [x_data, model, pi_0, pi_T, n_states, chain_len, batch_size, n_samples, n_epoch, lr]
     kwargs = {
         'format': 'table',
         'ed_model': {
