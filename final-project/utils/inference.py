@@ -168,3 +168,49 @@ def infer_mc_with_priors_2(x_data, model, pi_0, pi_T, n_states, chain_len, batch
         }
     }
     return get_cache_or_execute('experiment3', function, *args, **kwargs)
+
+def infer_mc_non_stationary(x_data, x, pi_0, pi_T_list, n_states, chain_len, batch_size, n_samples=10, n_epoch=5, lr=0.005):
+	""" runs variational inference given mc model with priors, conditioning on position in the chain """
+	# TODO need to cache this but looks like saving list makes the saver crash
+	sess = tf.Session()
+	data = generator(x_data, batch_size)
+
+	n_batch = int(x_data.shape[0] / batch_size)
+
+	# qpi_0 = kwargs['ed_model']['qpi_0']
+	# qpi_T_list = kwargs['ed_model']['qpi_T_list']
+	qpi_0 = Dirichlet(tf.nn.softplus(tf.get_variable("qpi0/concentration", [n_states])))
+	var_names = ["qpiT_%s/concentration_" % (str(i),) for i in range(chain_len)]
+	qpi_T_list = [Dirichlet(tf.nn.softplus(tf.get_variable(name, [n_states, n_states]))) for name in var_names]
+
+	X = np.array([tf.placeholder(tf.int32, [batch_size]) for _ in range(chain_len)])
+
+	latent_vars_map = {pi_0: qpi_0}
+	latent_vars_map.update(dict(zip(pi_T_list, qpi_T_list)))
+	inference = ed.KLqp(latent_vars_map, data=dict(zip(x, X)))
+	inference.initialize(n_iter=n_batch * n_epoch, n_samples=n_samples, optimizer=tf.train.AdamOptimizer(lr))
+
+	saver = tf.train.Saver()
+
+	# set sess as default but doesn't close it so we can re-use it later:
+	with sess.as_default():
+		sess.run(tf.global_variables_initializer())
+		for _ in range(inference.n_iter):
+			x_batch = next(data)
+			info_dict = inference.update(dict(zip(X, x_batch.values.T)))
+			inference.print_progress(info_dict)
+
+		save_path = saver.save(sess, join(cache_path, 'experiment4.ckpt'))
+		inferred_matrices = [pd.DataFrame(sess.run(qpi_T.mean())) for qpi_T in qpi_T_list]
+
+	return [pretty_matrix(inferred_matrix) for inferred_matrix in inferred_matrices], sess, qpi_0, qpi_T_list
+	
+	# args = [x_data, x, pi_0, pi_T_list, n_states, chain_len, batch_size, n_samples, n_epoch, lr]
+	# kwargs = {
+	# 	# 'format': 'table',
+	# 	'ed_model': {
+	# 		'qpi_0': Dirichlet(tf.nn.softplus(tf.get_variable("qpi0/concentration", [n_states]))),
+	# 		'qpi_T_list': qpi_T_list
+	# 	}
+	# }
+	# return get_cache_or_execute('experiment4', function, *args, **kwargs)

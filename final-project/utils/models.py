@@ -125,3 +125,23 @@ def build_mc_with_priors_2(n_states, chain_len, batch_size):
         sample_shape=batch_size)
 
     return model, pi_0, pi_T
+
+def build_mc_non_stationary(n_states, chain_len, batch_size):
+	""" models a stationary markov chain in edward with Dirichlet priors """
+	tf.reset_default_graph()
+
+	# create default starting state probability vector
+	pi_0 = Dirichlet(tf.ones(n_states))
+	x_0 = Categorical(pi_0, sample_shape=batch_size)
+
+	pi_T, x = [], []
+	for _ in range(chain_len):
+		x_tm1 = x[-1] if x else x_0
+		# transition matrix, one per position in the chain:
+		# i.e. we now condition both on previous state and age of the loan
+		pi_T_t = Dirichlet(tf.ones([n_states, n_states]))
+		x_t = Categorical(probs=tf.gather(pi_T_t, x_tm1))
+		pi_T.append(pi_T_t)
+		x.append(x_t)
+
+	return x, pi_0, pi_T
