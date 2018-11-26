@@ -32,7 +32,7 @@ def build_mle_matrix(df):
 				print(f'Filling in empty column {i}...')
 				transition_matrix[i] = 0
 
-		return pretty_matrix(transition_matrix)
+		return pretty_matrix(transition_matrix), None
 
 	kwargs = { 'format': 'table' }
 	return get_cache_or_execute('transitions', function, df, **kwargs)[0]

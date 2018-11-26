@@ -48,8 +48,20 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 
 	start = timer()
 	if not exists(cached_file):
+
+		# hdf5 caching kwargs
+		data_columns = kwargs.pop('data_columns', False)
+		_format = kwargs.pop('format', False)
+
 		df, *vals = function(*args, **kwargs)
 		print(f'Caching {name} data...')
+
+		if data_columns:
+			kwargs['data_columns'] = df.columns
+
+		if _format:
+			kwargs['format'] = _format
+
 		with pd.HDFStore(cached_file, mode='w') as store:
 			store.append(name, df, **kwargs)
 	else:
@@ -75,7 +87,7 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 	return df, (*vals)
 
 
-def load_dataframe():
+def load_dataframe(**kwargs):
 	""" we cache the df for faster dev workflow """
 	def function():
 		print('Loading raw data from csv...')
@@ -87,7 +99,7 @@ def load_dataframe():
 
 		# rename the columns
 		df.rename(columns={'MOB': 'age_of_loan', 'PERIOD_END_LSTAT': 'loan_status', 'LOAN_ID': 'id'}, inplace=True)
-		return df
+		return df, None
 
 	kwargs = { 'data_columns': True, 'format': 'table' }
 	return get_cache_or_execute('raw', function, **kwargs)[0]
@@ -101,7 +113,7 @@ def load_data_dic():
 	return dic_df
 
 
-def preprocess(df):
+def preprocess(df, **kwargs):
 	""" preprocess and cache df: clean fields and extract features """
 	print(f'Mapping column names...')
 	le = preprocessing.LabelEncoder()
@@ -125,7 +137,8 @@ def preprocess(df):
 		# encode loan_status and term
 		df['term'] = le.fit_transform(df.term)
 		df['loan_status'] = le.fit_transform(df.loan_status)
-		return df
+
+		return df, None
 
 	kwargs = { 'data_columns': True, 'format': 'table' }
 	return get_cache_or_execute('preprocessed', function, df, **kwargs)[0]
@@ -143,7 +156,7 @@ def split_data(df):
 		# drop where 0 column is not null - this might be a data error, then drop the 0 column
 		# and fill null values by propogating forward the last valid value
 		x_data = x_data[x_data[0].isnull()].drop(0, axis=1).fillna(axis=1, method='ffill')
-		return x_data
+		return x_data, None
 
 	kwargs = { 'format': 'table' }
 	x_data = get_cache_or_execute('split', function, df, **kwargs)[0]
@@ -179,9 +192,14 @@ def pretty_matrix(matrix):
 	return matrix.round(6)
 
 
-def clear_cache(extensions=['hdf']):
+def clear_cache(extensions):
 	""" clears cached files of specified extension types """
 	cached_files = []
+
+	if not extensions:
+		extensions = ['hdf', 'ckpt', 'pkl', 'tmp']
+		cached_files.append(join(cache_path, 'checkpoint'))
+
 	for ext in extensions:
 		cached_files.extend(glob.glob(join(cache_path, f'*.{ext}*'), recursive=True))
 
@@ -197,7 +215,7 @@ def parse():
 	parser.add_argument(
 		'--clear_cache',
 		'-c',
-		nargs='+',
+		nargs='*',
     type=str.lower,
 		metavar='extension',
 		help='Filetypes to clear from cache'
@@ -208,7 +226,7 @@ def parse():
 
 if __name__ == '__main__':
 	args = parse()
-	if args.clear_cache:
+	if isinstance(args.clear_cache, list):
 		print('Clearing cache...')
 		clear_cache(args.clear_cache)
 
