@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import networkx as nx
+import tensorflow as tf
 
 from edward.models import Categorical
 from utils.tf.tf_hidden_markov_model import HiddenMarkovModel
@@ -31,14 +32,7 @@ def sample_mle(mle_table, length=36, initial_state='Current', add_done=True):
     return pd.Series(chain)
 
 
-def sample_and_plot_length(mle_table, true_data, n_samples=10000):
-    """ plots sampled lengths """
-    sampled_trajectories = [sample_mle(mle_table, add_done=False)
-                            for _ in range(n_samples)]
-    done_idx = [i for i, k in enumerate(mle_table.keys()) if k == "Done"][0]
-    true_counts = (true_data != done_idx).sum(axis=1)
-    sampled_counts = [t.shape[0] for t in sampled_trajectories]
-
+def plot_length(true_counts, sampled_counts):
     plt.figure(figsize=(15, 8))
     plt.hist([true_counts, sampled_counts], bins=36,
              normed=True, label=['True loan lengths', 'Sampled loan lengths'])
@@ -51,6 +45,17 @@ def sample_and_plot_length(mle_table, true_data, n_samples=10000):
     true_mean = true_counts.mean()
     print(f'Average length of sampled loans: {sampled_mean:.2f} months')
     print(f'Average length of true loans: {true_mean:.2f} months')
+
+
+def sample_and_plot_length(mle_table, true_data, n_samples=10000):
+    """ plots sampled lengths """
+    sampled_trajectories = [sample_mle(mle_table, add_done=False)
+                            for _ in range(n_samples)]
+    done_idx = [i for i, k in enumerate(mle_table.keys()) if k == "Done"][0]
+    true_counts = (true_data != done_idx).sum(axis=1)
+    sampled_counts = [t.shape[0] for t in sampled_trajectories]
+
+    plot_length(true_counts, sampled_counts)
 
 
 def graph_trajectory(trajectory):
@@ -106,6 +111,85 @@ def plot_probs_from_state_j(matrices, state_j, states_k=None):
     ax.set_title(f'Estimated Transition Probability From State: {state_j}')
     plt.show()
 
+# EXPERIMENT 2
+
+def copy_model_ed(qpi_0, qpi_T, chain_len, n_states, batch_size):
+    """
+    Used in place of ed.copy as it seems like ed.copy doesn't take
+    into account all the necessary dependencies in our graph.
+    """
+    x_0_post = Categorical(probs=qpi_0, sample_shape=batch_size)
+
+    x_post = []
+    for _ in range(chain_len):
+        x_tm1 = x_post[-1] if x_post else x_0_post
+        x_t = Categorical(probs=tf.gather(qpi_T, x_tm1))
+        x_post.append(x_t)
+
+    return x_0_post, x_post
+
+
+def sample_ed(x_0_post, x_post, sess, inferred_matrix, n_samples=1, batch_size=1000):
+    """ creates the posterior predictive and samples from it """
+    with sess.as_default():
+        samples = []
+        current_state = sess.run(x_0_post.sample(batch_size))
+        for i in range(1, len(x_post)):
+            samples.append(current_state)
+            current_state = sess.run(x_post[i].sample(), {x_post[i-1]: current_state})
+    samples = np.array(samples).T
+    
+    def pretty_sample(s):
+        pretty_s = []
+        for k in s:
+            if inferred_matrix.keys()[k] != "Done":
+                pretty_s.append(inferred_matrix.keys()[k])
+            else:
+                break
+        return pretty_s
+
+    if n_samples == 1:
+        return pd.Series(pretty_sample(samples[0]))
+    else:
+        return [pretty_sample(s) for s in samples]
+
+
+def sample_and_plot_length_ed(x_0_post, x_post, sess, true_data,
+                               inferred_matrix, n_samples=1000):
+    """ plots sampled lengths """
+    sampled_trajectories = sample_ed(x_0_post, x_post, sess,
+                                      inferred_matrix, n_samples)
+    done_idx = [i for i, k in enumerate(
+                inferred_matrix.keys()) if k == "Done"][0]
+    true_counts = (true_data != done_idx).sum(axis=1)
+    sampled_counts = [len(t) for t in sampled_trajectories]
+
+    plot_length(true_counts, sampled_counts)
+
+# EXPERIMENT 3
+
+def copy_model_tfp(qpi_0, qpi_T, chain_len, n_states, sample_shape):
+    """
+    Used in place of ed.copy as it seems like ed.copy doesn't take
+    into account all the necessary dependencies in our graph.
+    """
+    x_0 = Categorical(probs=qpi_0, sample_shape=sample_shape)
+
+    # transition matrix
+    transition_distribution = Categorical(probs=qpi_T)
+
+    pi_E = np.eye(n_states, dtype=np.float32)  # identity matrix
+    emission_distribution = Categorical(probs=pi_E)
+
+    model_post = HiddenMarkovModel(
+            initial_distribution=x_0,
+            transition_distribution=transition_distribution,
+            observation_distribution=emission_distribution,
+            num_steps=chain_len,
+            sample_shape=sample_shape)
+
+    return model_post
+
 
 def sample_tfp(model_post, sess, inferred_matrix, n_samples=1):
     """ creates the posterior predictive and samples from it """
@@ -130,7 +214,6 @@ def sample_tfp(model_post, sess, inferred_matrix, n_samples=1):
 def sample_and_plot_length_tfp(model_post, sess, true_data,
                                inferred_matrix, n_samples=10000):
     """ plots sampled lengths """
-    # TODO merge this with mle plot fct
     sampled_trajectories = sample_tfp(model_post, sess,
                                       inferred_matrix, n_samples)
     done_idx = [i for i, k in enumerate(
@@ -138,40 +221,8 @@ def sample_and_plot_length_tfp(model_post, sess, true_data,
     true_counts = (true_data != done_idx).sum(axis=1)
     sampled_counts = [len(t) for t in sampled_trajectories]
 
-    plt.figure(figsize=(15, 8))
-    plt.hist([true_counts, sampled_counts], bins=36, normed=True,
-             label=['True loan lengths', 'Sampled loan lengths'])
-    plt.legend()
-    plt.xlabel('Length (months)')
-    plt.ylabel('Number of loans (normalized)')
-    plt.show()
+    plot_length(true_counts, sampled_counts)
 
-    sampled_mean = np.mean(sampled_counts)
-    true_mean = true_counts.mean()
-    print(f'Average length of sampled loans: {sampled_mean:.2f} months')
-    print(f'Average length of true loans: {true_mean:.2f} months')
-
-def copy_model_tfp(qpi_0, qpi_T, chain_len, n_states, sample_shape):
-    """
-    Used in place of ed.copy as it seems like ed.copy doesn't take
-    into account all the necessary dependencies in our graph.
-    """
-    x_0 = Categorical(probs=qpi_0, sample_shape=sample_shape)
-
-    # transition matrix
-    transition_distribution = Categorical(probs=qpi_T)
-
-    pi_E = np.eye(n_states, dtype=np.float32)  # identity matrix
-    emission_distribution = Categorical(probs=pi_E)
-
-    model_post = HiddenMarkovModel(
-            initial_distribution=x_0,
-            transition_distribution=transition_distribution,
-            observation_distribution=emission_distribution,
-            num_steps=chain_len,
-            sample_shape=sample_shape)
-
-    return model_post
 
 if __name__ == '__main__':
     series = pd.Series(['Current', 'Late', 'Default'])
