@@ -11,16 +11,21 @@ If you're not familiar with Pipenv, you can learn about it [here](https://pipenv
 
 To start, in your project folder run:
 ```bash
-pipenv install
+pipenv install --dev
 ```
 
-This will create a Pipfile and Pipfile.lock. Please add any python packages you use to this Pipfile. Note that you may wish to specify a python version with the `--python` argument (ex. `pipenv --python 3.6.5`).
+This will create a Pipfile and Pipfile.lock (--dev just installs the dev-only packages as well). Please add any python packages you use to this Pipfile. Note that you may wish to specify a python version with the `--python` argument (ex. `pipenv --python 3.6.5`).
 
-(Note if you get an error on install due to pip version 18.1 incompatibility with Pipenv, you can pin your pip version to 18.0 with `pipenv run pip install pip==18.0` and then run `pipenv install` afterwards)
+(Note if you get an error on install due to pip version 18.1 incompatibility with Pipenv, you can pin your pip version to 18.0 with `pipenv run pip install pip==18.0` and then run `pipenv install --dev` afterwards)
 
 To add packages to the Pipfile run:
 ```bash
 pipenv install <PACKAGE-NAME>
+```
+
+To add dev-only packages to the Pipfile run:
+```bash
+pipenv install --dev <PACKAGE-NAME>
 ```
 
 Next run:

@@ -15,10 +15,10 @@ xlrd = "*"
 edward = "*"
 tensorflow = "==1.7"
 tables = "*"
-"pytest-flake8" = "*"
 networkx = "*"
 
 [dev-packages]
+"pytest-flake8" = "*"
 
 [requires]
 python_version = "3.6"
