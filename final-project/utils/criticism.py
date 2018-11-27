@@ -6,16 +6,17 @@ import networkx as nx
 
 sns.set_style('whitegrid')
 
-def sample_mle(mle_table, length=36, initial_state='Current'):
+def sample_mle(mle_table, length=36, initial_state='Current', add_done=True):
   """
   Given a table of MLE estimates for the Markov Chain, samples
-  states until length is reached or Charged Off or Fully Paid is reached, start from 'Current'
+  states until length is reached or Done is reached, start from 'Current'
   """
   chain = list()
   current_state = initial_state
-  for i in range(36):
-    chain.append(current_state)
-    if current_state not in ['Charged Off', 'Fully Paid']:
+  for i in range(length):
+    if current_state != "Done" or add_done:
+        chain.append(current_state)
+    if current_state != "Done":
       probs_next_state = mle_table.loc[current_state,:].values
       probs_next_state /= probs_next_state.sum() # fix in case rounding the MLE made the sum != 1 but close
       current_state = np.random.choice(list(mle_table.index), p=probs_next_state)
@@ -23,18 +24,23 @@ def sample_mle(mle_table, length=36, initial_state='Current'):
       break
   return pd.Series(chain)
 
-def plot_sampled_lengths(sampled_trajectories, true_data):
+def sample_and_plot_length(mle_table, true_data, n_samples=10000):
   """ plots sampled lengths """
+  sampled_trajectories = [sample_mle(mle_table, add_done=False) for _ in range(n_samples)]
+  done_idx = [i for i,k in enumerate(mle_table.keys()) if k == "Done"][0]
+  true_counts = (true_data != done_idx).sum(axis=1)
+  sampled_counts = [t.shape[0] for t in sampled_trajectories]
+  
   plt.figure(figsize=(15,8))
-  plt.hist([true_data.groupby('id').size(), [t.shape[0] for t in sampled_trajectories]],
-             bins=36, normed=True, label=['True loan lengths', 'Sampled loan lengths'])
+  plt.hist([true_counts, sampled_counts], bins=36, normed=True,
+            label=['True loan lengths', 'Sampled loan lengths'])
   plt.legend()
   plt.xlabel('Length (months)')
   plt.ylabel('Number of loans (normalized)')
   plt.show()
 
-  sampled_mean = np.mean([t.shape[0] for t in sampled_trajectories])
-  true_mean = true_data.groupby('id').size().mean()
+  sampled_mean = np.mean(sampled_counts)
+  true_mean = true_counts.mean()
   print(f'Average length of sampled loans: {sampled_mean:.2f} months')
   print(f'Average length of true loans: {true_mean:.2f} months')
 
