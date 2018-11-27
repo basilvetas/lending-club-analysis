@@ -46,7 +46,7 @@ def model_stationary_dirichlet_categorical_edward(n_states, chain_len, batch_siz
 
 	# create default starting state probability vector
 	pi_0 = Dirichlet(tf.ones(n_states))
-	x_0 = Categorical(pi_0, sample_shape=batch_size)
+	x_0 = Categorical(probs=pi_0, sample_shape=batch_size)
 
 	# transition matrix
 	pi_T = Dirichlet(tf.ones([n_states, n_states]))
@@ -65,7 +65,7 @@ def model_stationary_dirichlet_categorical_tfp(n_states, chain_len, batch_size):
 
   # create default starting state probability vector
   pi_0 = Dirichlet(tf.ones(n_states))
-  x_0 = Categorical(pi_0, sample_shape=batch_size)
+  x_0 = Categorical(probs=pi_0, sample_shape=batch_size)
 
   # transition matrix
   pi_T = Dirichlet(tf.ones([n_states, n_states]))
@@ -89,7 +89,7 @@ def model_non_stationary_dirichlet_categorical(n_states, chain_len, batch_size):
 
 	# create default starting state probability vector
 	pi_0 = Dirichlet(tf.ones(n_states))
-	x_0 = Categorical(pi_0, sample_shape=batch_size)
+	x_0 = Categorical(probs=pi_0, sample_shape=batch_size)
 
 	pi_T, x = [], []
 	for _ in range(chain_len):

@@ -87,18 +87,50 @@ def plot_probs_from_state_j(matrices, state_j, states_k=None):
   ax.set_title(f'Estimated Transition Probability From State: {state_j}')
   plt.show()
 
+def sample_tfp(model_post, sess, inferred_matrix, n_samples=1):
+  """creates the posterior predictive and samples from it"""
+  with sess.as_default():
+      samples = sess.run(model_post.sample(n_samples))
+
+  def pretty_sample(s):
+      pretty_s = []
+      for k in s:
+          if inferred_matrix.keys()[k] != "Done":
+              pretty_s.append(inferred_matrix.keys()[k])
+          else:
+              break
+      return pretty_s
+
+  if n_samples == 1:
+    return pd.Series(pretty_sample(samples[0]))
+  else:
+    return [pretty_sample(s) for s in samples]
+
+def sample_and_plot_length_tfp(model_post, sess, true_data, inferred_matrix, n_samples=10000):
+  """ plots sampled lengths """
+  # TODO merge this with mle plot fct
+  sampled_trajectories = sample_tfp(model_post, sess, inferred_matrix, n_samples)
+  done_idx = [i for i,k in enumerate(inferred_matrix.keys()) if k == "Done"][0]
+  true_counts = (true_data != done_idx).sum(axis=1)
+  sampled_counts = [len(t) for t in sampled_trajectories]
+
+  plt.figure(figsize=(15,8))
+  plt.hist([true_counts, sampled_counts], bins=36, normed=True,
+            label=['True loan lengths', 'Sampled loan lengths'])
+  plt.legend()
+  plt.xlabel('Length (months)')
+  plt.ylabel('Number of loans (normalized)')
+  plt.show()
+
+  sampled_mean = np.mean(sampled_counts)
+  true_mean = true_counts.mean()
+  print(f'Average length of sampled loans: {sampled_mean:.2f} months')
+  print(f'Average length of true loans: {true_mean:.2f} months')
+
 if __name__ == '__main__':
 
   series = pd.Series(['Current', 'Late', 'Default'])
   graph_trajectory(series)
-
-
-
-
-
-
-
-
 
 
 
