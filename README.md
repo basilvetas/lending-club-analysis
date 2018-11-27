@@ -21,12 +21,12 @@ pytest --flake8
 
 To clear all cache files (from within the virtualenv shell):
 ```bash
-python utils/utils.py -c
+python final-project/utils/utils.py -c
 ```
 or specify specific file types:
 
 ```bash
-python utils/utils.py -c hdf pkl
+python final-project/utils/utils.py -c hdf pkl
 ```
 
 # Final Project Instructions
