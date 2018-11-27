@@ -39,32 +39,9 @@ def build_mle_matrix(df):
 	kwargs = { 'format': 'table' }
 	return get_cache_or_execute('transitions', function, df, **kwargs)[0]
 
-def build_mc_no_priors(n_states, chain_len):
-	"""
-	models a stationary markov chain in edward without priors
-	for more see: https://github.com/blei-lab/edward/issues/450
-	"""
-	tf.reset_default_graph()
 
-	# create x_0, a default beginning state probability
-	# vector with equal probabilties for each state
-	p = tf.fill([n_states], 1.0 / n_states)
-	x_0 = Categorical(probs=p)
-
-	# create transition matrix for all other transitions after x_0
-	T = tf.nn.softmax(tf.Variable(tf.random_uniform([n_states, n_states]), name='T'), axis=0)
-
-	# model the chain priors
-	x = []
-	for _ in range(chain_len):
-		x_tm1 = x[-1] if x else x_0
-		x_t = Categorical(probs=T[x_tm1, :])
-		x.append(x_t)
-
-	return x, T
-
-def build_mc_with_priors(n_states, chain_len, batch_size):
-	""" models a stationary markov chain in edward with Dirichlet priors """
+def model_stationary_dirichlet_categorical_edward(n_states, chain_len, batch_size):
+	""" Models a stationary Dirichlet-Categorical Markov Chain in Edward """
 	tf.reset_default_graph()
 
 	# create default starting state probability vector
@@ -82,32 +59,32 @@ def build_mc_with_priors(n_states, chain_len, batch_size):
 
 	return x, pi_0, pi_T
 
-def build_mc_with_priors_2(n_states, chain_len, batch_size):
-    """ models a stationary markov chain in edward with Dirichlet priors """
-    tf.reset_default_graph()
+def model_stationary_dirichlet_categorical_tfp(n_states, chain_len, batch_size):
+  """ Models a stationary Dirichlet-Categorical Markov Chain in TensorFlow Probability/Edward2 """
+  tf.reset_default_graph()
 
-    # create default starting state probability vector
-    pi_0 = Dirichlet(tf.ones(n_states))
-    x_0 = Categorical(pi_0, sample_shape=batch_size)
+  # create default starting state probability vector
+  pi_0 = Dirichlet(tf.ones(n_states))
+  x_0 = Categorical(pi_0, sample_shape=batch_size)
 
-    # transition matrix
-    pi_T = Dirichlet(tf.ones([n_states, n_states]))
-    transition_distribution = Categorical(probs=pi_T)
+  # transition matrix
+  pi_T = Dirichlet(tf.ones([n_states, n_states]))
+  transition_distribution = Categorical(probs=pi_T)
 
-    pi_E = np.eye(n_states, dtype=np.float32) # identity matrix
-    emission_distribution = Categorical(probs=pi_E)
+  pi_E = np.eye(n_states, dtype=np.float32) # identity matrix
+  emission_distribution = Categorical(probs=pi_E)
 
-    model = HiddenMarkovModel(
-        initial_distribution=x_0,
-        transition_distribution=transition_distribution,
-        observation_distribution=emission_distribution,
-        num_steps=chain_len,
-        sample_shape=batch_size)
+  model = HiddenMarkovModel(
+    initial_distribution=x_0,
+    transition_distribution=transition_distribution,
+    observation_distribution=emission_distribution,
+    num_steps=chain_len,
+    sample_shape=batch_size)
 
-    return model, pi_0, pi_T
+  return model, pi_0, pi_T
 
-def build_mc_non_stationary(n_states, chain_len, batch_size):
-	""" models a stationary markov chain in edward with Dirichlet priors """
+def model_non_stationary_dirichlet_categorical(n_states, chain_len, batch_size):
+	""" Models a non-stationary Dirichlet-Categorical Markov Chain in Edward """
 	tf.reset_default_graph()
 
 	# create default starting state probability vector
@@ -126,8 +103,8 @@ def build_mc_non_stationary(n_states, chain_len, batch_size):
 
 	return x, pi_0, pi_T
 
-def build_multinomial(n_states, chain_len, total_counts_per_month):
-	""" models loan counts by one multinomial per timestep """
+def model_stationary_dirichlet_multinomial(n_states, chain_len, total_counts_per_month):
+	""" Models a stationary Dirichlet-Multinomial Markov Chain in Edward """
 	# TODO make batch size
 	tf.reset_default_graph()
 

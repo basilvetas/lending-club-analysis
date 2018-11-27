@@ -44,7 +44,10 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 	""" Checks for cached df, otherwise runs function to generate df """
 	cached_file = join(cache_path, f'{name}.hdf')
 	ed_model = kwargs.get('ed_model', False)
+	n_items = kwargs.pop('n_items', 1)
 	vals = []
+
+	names = [f'{name}_{i+1}' for i in range(n_items)]
 
 	start = timer()
 	if not exists(cached_file):
@@ -53,20 +56,31 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 		data_columns = kwargs.pop('data_columns', False)
 		_format = kwargs.pop('format', False)
 
-		df, *vals = function(*args, **kwargs)
+		obj, *vals = function(*args, **kwargs)
 		print(f'Caching {name} data...')
 
 		if data_columns:
-			kwargs['data_columns'] = df.columns
+			kwargs['data_columns'] = obj.columns
 
 		if _format:
 			kwargs['format'] = _format
 
 		with pd.HDFStore(cached_file, mode='w') as store:
-			store.append(name, df, **kwargs)
+			for i in range(n_items):
+				name_ = names[i] if n_items > 1 else name
+				obj_ = obj[i] if n_items > 1 else obj
+				store.append(name_, obj_, **kwargs)
 	else:
 		print(f'Loading {name} data from cache...')
-		df = pd.read_hdf(cached_file, name)
+
+		obj = []
+		for i in range(n_items):
+			name_ = names[i] if n_items > 1 else name
+			obj_ = pd.read_hdf(cached_file, name_)
+			if n_items > 1:
+				obj.append(obj_)
+			else:
+				obj = obj_
 
 		if ed_model:
 			print(f'Loading cached edward model...')
@@ -81,13 +95,16 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 			except tf.errors.NotFoundError as e:
 				print(f'Error: please re-run model and try again.')
 				val = len(list(ed_model.values()))+1
-				return df, (*[None]*val)
+				return obj, (*[None]*val)
 
-	print(f'''Retrieved {df.shape[0]:,} rows, {df.shape[1]} columns in {timer() - start:.2f} seconds''')
-	return df, (*vals)
+	if isinstance(obj, pd.DataFrame):
+		print(f'''Retrieved {obj.shape[0]:,} rows, {obj.shape[1]} columns in {timer() - start:.2f} seconds''')
+	else:
+		print(f'Retrieved data in {timer() - start:.2f} seconds')
+	return obj, (*vals)
 
 
-def load_dataframe(**kwargs):
+def load_dataframe():
 	""" we cache the df for faster dev workflow """
 	def function():
 		print('Loading raw data from csv...')
@@ -119,7 +136,7 @@ def load_data_dic():
 	return dic_df
 
 
-def preprocess(df, **kwargs):
+def preprocess(df):
 	""" preprocess and cache df: clean fields and extract features """
 	print(f'Mapping column names...')
 	le = preprocessing.LabelEncoder()
