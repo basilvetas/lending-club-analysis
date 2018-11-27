@@ -204,7 +204,7 @@ def infer_mc_non_stationary(x_data, x, pi_0, pi_T_list, n_states, chain_len, bat
 		inferred_matrices = [pd.DataFrame(sess.run(qpi_T.mean())) for qpi_T in qpi_T_list]
 
 	return [pretty_matrix(inferred_matrix) for inferred_matrix in inferred_matrices], sess, qpi_0, qpi_T_list
-	
+
 	# args = [x_data, x, pi_0, pi_T_list, n_states, chain_len, batch_size, n_samples, n_epoch, lr]
 	# kwargs = {
 	# 	# 'format': 'table',

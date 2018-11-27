@@ -4,7 +4,7 @@ import seaborn as sns
 import pandas as pd
 import networkx as nx
 
-sns.set_style('whitegrid')
+sns.set_style('white')
 
 def sample_mle(mle_table, length=36, initial_state='Current'):
   """
@@ -54,13 +54,56 @@ def graph_trajectory(trajectory):
   df.columns = ['source', 'target']
   df = df.iloc[1:] # drop first row with nan
   G = nx.from_pandas_edgelist(df, 'source', 'target', create_using=nx.DiGraph())
-  fig=plt.figure(figsize=(20, 10), dpi= 80, facecolor='w')
+  plt.figure(figsize=(20, 10), dpi= 80, facecolor='w')
   nx.draw_spectral(G, with_labels=True, node_color='#d3d3d3')
+  plt.show()
+
+def plot_probs_from_state_j(matrices, state_j, states_k=None):
+  """ plots the probabilities of transitioning from state_j to all states_k across each time step """
+
+  if states_k is None:
+    states_k = ['Charged Off', 'Current', 'Default', 'Fully Paid', 'In Grace Period', 'Late (16-30 days)', 'Late (31-120 days)']
+
+  data = []
+  for month_i in range(len(matrices)):
+    for state_k, prob_jk in matrices[month_i].T[state_j].iteritems():
+      if (state_k in states_k):
+        data.append({
+          'month': month_i,
+          'state': state_k,
+          'probability': prob_jk
+        })
+
+  df = pd.DataFrame(data)
+  plt.figure(figsize=(10, 10), dpi= 80, facecolor='w')
+  ax = sns.lineplot(x='month', y='probability', hue='state', data=df)
+  ax.set_title(f'Estimated Transition Probability From State: {state_j}')
   plt.show()
 
 if __name__ == '__main__':
 
   series = pd.Series(['Current', 'Late', 'Default'])
   graph_trajectory(series)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
