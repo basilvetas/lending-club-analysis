@@ -17,6 +17,8 @@ def build_mle_matrix(df):
 	def function(df):
 		print('Building transition matrix...')
 
+		df = df.T.melt().reset_index()
+		df.rename({'index': 'age_of_loan', 'value': 'loan_status'}, axis=1, inplace=True)
 		df['previous_month'] = df.age_of_loan - 1
 		transitions =  pd.merge(df, df, left_on=['id', 'age_of_loan'], right_on=['id', 'previous_month'])
 		transition_matrix = pd.crosstab(transitions['loan_status_x'], transitions['loan_status_y'])
@@ -36,28 +38,6 @@ def build_mle_matrix(df):
 
 	kwargs = { 'format': 'table' }
 	return get_cache_or_execute('transitions', function, df, **kwargs)[0]
-
-def debug_build_mle_matrix(df):
-	""" return transition matrix based on loan term and age of loan """
-	print('Building transition matrix...')
-
-	df['previous_month'] = df.age_of_loan - 1
-	transitions =  pd.merge(df, df, left_on=['id', 'age_of_loan'], right_on=['id', 'previous_month'])
-	transition_matrix = pd.crosstab(transitions['loan_status_x'], transitions['loan_status_y'])
-
-	# if there were no transitions for given state, it will be missing so fill it in
-	for i in range(df.loan_status.unique().shape[0]):
-		if i not in transition_matrix.index:
-			# if no row, create it and set to 0:
-			print(f'Filling in empty row {i}...')
-			transition_matrix.loc[i] = 0
-		if i not in transition_matrix.columns:
-			# if no column, create it and set to 0:
-			print(f'Filling in empty column {i}...')
-			transition_matrix[i] = 0
-
-	return pretty_matrix(transition_matrix)
-
 
 def build_mc_no_priors(n_states, chain_len):
 	"""

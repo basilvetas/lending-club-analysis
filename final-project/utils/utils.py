@@ -133,6 +133,7 @@ def preprocess(df, **kwargs):
 	le.fit(df.loan_status)
 	global loan_status_mapping
 	loan_status_mapping = dict(zip(le.transform(le.classes_), le.classes_))
+	loan_status_mapping.update({len(loan_status_mapping): "Done"}) # add additional status
 
 	def function(df):
 		print(f'Preprocessing data...')
@@ -160,7 +161,9 @@ def split_data(df):
 		x_data = df.pivot(index='id', columns='age_of_loan', values='loan_status')
 
 		# fill null values by propogating forward the last valid value
-		x_data = x_data.fillna(axis=1, method='ffill')
+		# x_data = x_data.fillna(axis=1, method='ffill')
+		new_status = df.loan_status.nunique() # add a state "done" to extrapolate short loans
+		x_data = x_data.fillna(new_status, axis=1)
 		return x_data, None
 
 	kwargs = { 'format': 'table' }
