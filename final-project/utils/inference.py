@@ -100,11 +100,12 @@ def infer_stationary_dirichlet_categorical_edward(x_data, x, pi_0,
     return get_cache_or_execute('experiment2', function, *args, **kwargs)
 
 
-def infer_stationary_dirichlet_categorical_tfp(x_data, model, pi_0,
-                                               pi_T, n_states, chain_len,
+def infer_stationary_dirichlet_categorical_tfp(x_data, model, pi_0, pi_T,
+                                               n_states, chain_len,
                                                batch_size, n_samples=10,
                                                n_epoch=1, lr=0.005):
     """ runs variational inference given mc model with priors """
+
     def function(x_data, x, pi_0, pi_T, n_states, chain_len,
                  batch_size, n_samples, n_epoch, lr, **kwargs):
         sess = tf.Session()
@@ -117,13 +118,15 @@ def infer_stationary_dirichlet_categorical_tfp(x_data, model, pi_0,
 
         X = tf.placeholder(tf.int32, [batch_size, chain_len])
 
-        # inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data={model: X})
-        inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data={model: X})
-        inference.initialize(n_iter=n_batch * n_epoch, n_samples=n_samples,
-                             optimizer=tf.train.AdamOptimizer(lr))
+        inference = ed.KLqp({pi_0: qpi_0,
+                            pi_T: qpi_T},
+                            data={model: X})
+        inference.initialize(n_iter=n_batch * n_epoch,
+                             n_samples=n_samples,
+                             optimizer=tf.train.AdamOptimizer(lr),
+                             logdir='log/experiment3')
 
         saver = tf.train.Saver()
-        inferred_matrix = pd.DataFrame()  # placeholder
         with sess.as_default():
             sess.run(tf.global_variables_initializer())
             for _ in range(inference.n_iter):
@@ -132,15 +135,21 @@ def infer_stationary_dirichlet_categorical_tfp(x_data, model, pi_0,
                 inference.print_progress(info_dict)
 
             saver.save(sess, join(cache_path, 'experiment3.ckpt'))
-            inferred_matrix = pd.DataFrame(sess.run(qpi_T.mean()))
+            inferred_qpi_0, inferred_qpi_T = sess.run(
+                [qpi_0.mean(), qpi_T.mean()])
+            inferred_qpi_T = pretty_matrix(pd.DataFrame(inferred_qpi_T))
+            inferred_qpi_0 = pd.DataFrame([inferred_qpi_0],
+                                          index=["probs"],
+                                          columns=inferred_qpi_T.columns)
 
         print()  # hack for printing new line
-        return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
+        return [inferred_qpi_0, inferred_qpi_T], sess, qpi_0, qpi_T
 
-    args = [x_data, model, pi_0, pi_T, n_states,
-            chain_len, batch_size, n_samples, n_epoch, lr]
+    args = [x_data, model, pi_0, pi_T, n_states, chain_len,
+            batch_size, n_samples, n_epoch, lr]
     kwargs = {
         'format': 'table',
+        'n_items': 2,
         'ed_model': {
             'qpi_0': Dirichlet(tf.nn.softplus(
                 tf.get_variable("qpi0/concentration", [n_states]))),

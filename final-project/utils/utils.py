@@ -100,7 +100,7 @@ def get_cache_or_execute(name, function, *args, **kwargs):
 
     if isinstance(obj, pd.DataFrame):
         print(f'''Retrieved {obj.shape[0]:,} rows, '''
-            f'''{obj.shape[1]} columns in {timer() - start:.2f} seconds''')
+              f'''{obj.shape[1]} columns in {timer() - start:.2f} seconds''')
     else:
         print(f'Retrieved data in {timer() - start:.2f} seconds')
     return obj, (*vals)
