@@ -7,6 +7,12 @@ import edward as ed
 from edward.models import Dirichlet
 
 from utils.utils import pretty_matrix, get_cache_or_execute
+from utils.models import (
+    model_stationary_dirichlet_categorical_edward,
+    model_stationary_dirichlet_categorical_tfp,
+    model_non_stationary_dirichlet_categorical,
+    model_stationary_dirichlet_multinomial
+)
 
 cache_path = join(dirname(realpath(__file__)), '../cache/')
 
@@ -71,7 +77,6 @@ def infer_stationary_dirichlet_categorical_edward(x_data, x, pi_0,
                              optimizer=tf.train.AdamOptimizer(lr))
 
         saver = tf.train.Saver()
-        inferred_matrix = pd.DataFrame()  # placeholder
 
         # set sess as default but doesn't close it so we can re-use it later:
         with sess.as_default():
@@ -82,19 +87,39 @@ def infer_stationary_dirichlet_categorical_edward(x_data, x, pi_0,
                 inference.print_progress(info_dict)
 
             saver.save(sess, join(cache_path, 'experiment2.ckpt'))
-            inferred_matrix = pd.DataFrame(sess.run(qpi_T.mean()))
+            inferred_qpi_0, inferred_qpi_T = sess.run(
+                [qpi_0.mean(), qpi_T.mean()])
+            inferred_qpi_T = pretty_matrix(pd.DataFrame(inferred_qpi_T))
+            inferred_qpi_0 = pd.DataFrame([inferred_qpi_0],
+                                          index=["probs"],
+                                          columns=inferred_qpi_T.columns)
 
         print()  # hack for printing new line
-        return pretty_matrix(inferred_matrix), sess, qpi_0, qpi_T
+        return [inferred_qpi_0, inferred_qpi_T], sess, qpi_0, qpi_T
+
+    try:
+        qpi_0_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpi0/concentration", [n_states])))
+
+        q_piT_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpiT/concentration", [n_states, n_states])))
+    except ValueError:
+        # we may need to reset the model if it was already run
+        model_stationary_dirichlet_categorical_edward(
+            n_states, chain_len, batch_size)
+        qpi_0_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpi0/concentration", [n_states])))
+
+        q_piT_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpiT/concentration", [n_states, n_states])))
 
     args = [x_data, x, pi_0, pi_T, n_states, chain_len, batch_size]
     kwargs = {
         'format': 'table',
+        'n_items': 2,
         'ed_model': {
-            'qpi_0': Dirichlet(tf.nn.softplus(
-                tf.get_variable("qpi0/concentration", [n_states]))),
-            'qpi_T': Dirichlet(tf.nn.softplus(
-                tf.get_variable("qpiT/concentration", [n_states, n_states])))
+            'qpi_0': qpi_0_,
+            'qpi_T': q_piT_
         }
     }
     return get_cache_or_execute('experiment2', function, *args, **kwargs)
@@ -145,16 +170,30 @@ def infer_stationary_dirichlet_categorical_tfp(x_data, model, pi_0, pi_T,
         print()  # hack for printing new line
         return [inferred_qpi_0, inferred_qpi_T], sess, qpi_0, qpi_T
 
+    try:
+        qpi_0_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpi0/concentration", [n_states])))
+
+        q_piT_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpiT/concentration", [n_states, n_states])))
+    except ValueError:
+        # we may need to reset the model if it was already run
+        model_stationary_dirichlet_categorical_tfp(
+            n_states, chain_len, batch_size)
+        qpi_0_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpi0/concentration", [n_states])))
+
+        q_piT_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpiT/concentration", [n_states, n_states])))
+
     args = [x_data, model, pi_0, pi_T, n_states, chain_len,
             batch_size, n_samples, n_epoch, lr]
     kwargs = {
         'format': 'table',
         'n_items': 2,
         'ed_model': {
-            'qpi_0': Dirichlet(tf.nn.softplus(
-                tf.get_variable("qpi0/concentration", [n_states]))),
-            'qpi_T': Dirichlet(tf.nn.softplus(
-                tf.get_variable("qpiT/concentration", [n_states, n_states])))
+            'qpi_0': qpi_0_,
+            'qpi_T': q_piT_
         }
     }
     return get_cache_or_execute('experiment3', function, *args, **kwargs)
@@ -206,17 +245,32 @@ def infer_non_stationary_dirichlet_categorical(x_data, x, pi_0, pi_T_list,
         return pretty_matrices, sess, qpi_0, qpi_T_list
 
     var_names = [f'qpiT_{i}/concentration_' for i in range(chain_len)]
+    try:
+        qpi_0_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpi0/concentration", [n_states])))
+
+        qpi_T_list_ = [Dirichlet(tf.nn.softplus(
+            tf.get_variable(name, [n_states, n_states])))
+            for name in var_names]
+    except ValueError:
+        # we may need to reset the model if it was already run
+        model_non_stationary_dirichlet_categorical(
+            n_states, chain_len, batch_size)
+        qpi_0_ = Dirichlet(tf.nn.softplus(
+            tf.get_variable("qpi0/concentration", [n_states])))
+
+        qpi_T_list_ = [Dirichlet(tf.nn.softplus(
+            tf.get_variable(name, [n_states, n_states])))
+            for name in var_names]
+
     args = [x_data, x, pi_0, pi_T_list, n_states,
             chain_len, batch_size, n_samples, n_epoch, lr]
     kwargs = {
         'format': 'table',
         'n_items': chain_len,
         'ed_model': {
-            'qpi_0': Dirichlet(tf.nn.softplus(
-                tf.get_variable("qpi0/concentration", [n_states]))),
-            'qpi_T_list': [Dirichlet(tf.nn.softplus(
-                tf.get_variable(name, [n_states, n_states])))
-                for name in var_names]
+            'qpi_0': qpi_0_,
+            'qpi_T_list': qpi_T_list_
         }
     }
     return get_cache_or_execute('experiment4', function, *args, **kwargs)
@@ -256,13 +310,23 @@ def infer_stationary_dirichlet_multinomial(x_data, pi_list, counts,
         return inferred_matrix, sess, qpi_list
 
     var_names = [f'qpi_{i}/concentration_' for i in range(chain_len)]
+    try:
+        qpi_list_ = [Dirichlet(1 + tf.nn.softplus(
+            tf.get_variable(name, [n_states]))) for name in var_names]
+
+    except ValueError:
+        # we may need to reset the model if it was already run
+        model_stationary_dirichlet_multinomial(
+            n_states, chain_len, total_counts_per_month)
+        qpi_list_ = [Dirichlet(1 + tf.nn.softplus(
+            tf.get_variable(name, [n_states]))) for name in var_names]
+
     args = [x_data, pi_list, counts, total_counts_per_month,
             n_states, chain_len, n_samples]
     kwargs = {
         'format': 'table',
         'ed_model': {
-            'qpi_list': [Dirichlet(1 + tf.nn.softplus(
-                tf.get_variable(name, [n_states]))) for name in var_names]
+            'qpi_list': qpi_list_
         }
 
     }

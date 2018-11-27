@@ -5,7 +5,6 @@ import tensorflow as tf
 from edward.models import Categorical, Dirichlet, Multinomial
 
 from utils.utils import pretty_matrix, get_cache_or_execute
-
 from utils.tf.tf_hidden_markov_model import HiddenMarkovModel
 
 
