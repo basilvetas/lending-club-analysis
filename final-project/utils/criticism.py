@@ -4,6 +4,9 @@ import seaborn as sns
 import pandas as pd
 import networkx as nx
 
+from edward.models import Categorical
+from utils.tf.tf_hidden_markov_model import HiddenMarkovModel
+
 sns.set_style('white')
 
 
@@ -148,6 +151,27 @@ def sample_and_plot_length_tfp(model_post, sess, true_data,
     print(f'Average length of sampled loans: {sampled_mean:.2f} months')
     print(f'Average length of true loans: {true_mean:.2f} months')
 
+def copy_model_tfp(qpi_0, qpi_T, chain_len, n_states, sample_shape):
+    """
+    Used in place of ed.copy as it seems like ed.copy doesn't take
+    into account all the necessary dependencies in our graph.
+    """
+    x_0 = Categorical(probs=qpi_0, sample_shape=sample_shape)
+
+    # transition matrix
+    transition_distribution = Categorical(probs=qpi_T)
+
+    pi_E = np.eye(n_states, dtype=np.float32)  # identity matrix
+    emission_distribution = Categorical(probs=pi_E)
+
+    model_post = HiddenMarkovModel(
+            initial_distribution=x_0,
+            transition_distribution=transition_distribution,
+            observation_distribution=emission_distribution,
+            num_steps=chain_len,
+            sample_shape=sample_shape)
+
+    return model_post
 
 if __name__ == '__main__':
     series = pd.Series(['Current', 'Late', 'Default'])
