@@ -74,7 +74,8 @@ def infer_stationary_dirichlet_categorical_edward(x_data, x, pi_0,
 
         inference = ed.KLqp({pi_0: qpi_0, pi_T: qpi_T}, data=dict(zip(x, X)))
         inference.initialize(n_iter=n_batch * n_epoch, n_samples=5,
-                             optimizer=tf.train.AdamOptimizer(lr))
+                             optimizer=tf.train.AdamOptimizer(lr),
+                             logdir='log/experiment2')
 
         saver = tf.train.Saver()
 
