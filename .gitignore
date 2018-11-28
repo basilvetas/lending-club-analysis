@@ -116,13 +116,6 @@ dmypy.json
 
 # Custom
 *.pdf
-*.png
-!boxs-loop.png
-!trajectory1.png
-!trajectory2.png
-!transition-graphical-model.png
-!exp2-loss.png
-!exp3-loss.png
 *.out
 *.log
 *.aux
