@@ -111,7 +111,6 @@ def plot_probs_from_state_j(matrices, state_j, states_k=None):
     ax.set_title(f'Estimated Transition Probability From State: {state_j}')
     plt.show()
 
-# EXPERIMENT 2
 
 def copy_model_ed(qpi_0, qpi_T, chain_len, n_states, batch_size):
     """
@@ -129,16 +128,18 @@ def copy_model_ed(qpi_0, qpi_T, chain_len, n_states, batch_size):
     return x_0_post, x_post
 
 
-def sample_ed(x_0_post, x_post, sess, inferred_matrix, n_samples=1, batch_size=1000):
+def sample_ed(x_0_post, x_post, sess,
+              inferred_matrix, n_samples=1, batch_size=1000):
     """ creates the posterior predictive and samples from it """
     with sess.as_default():
         samples = []
         current_state = sess.run(x_0_post.sample(batch_size))
         for i in range(1, len(x_post)):
             samples.append(current_state)
-            current_state = sess.run(x_post[i].sample(), {x_post[i-1]: current_state})
+            current_state = sess.run(
+                x_post[i].sample(), {x_post[i-1]: current_state})
     samples = np.array(samples).T
-    
+
     def pretty_sample(s):
         pretty_s = []
         for k in s:
@@ -155,10 +156,10 @@ def sample_ed(x_0_post, x_post, sess, inferred_matrix, n_samples=1, batch_size=1
 
 
 def sample_and_plot_length_ed(x_0_post, x_post, sess, true_data,
-                               inferred_matrix, n_samples=1000):
+                              inferred_matrix, n_samples=1000):
     """ plots sampled lengths """
     sampled_trajectories = sample_ed(x_0_post, x_post, sess,
-                                      inferred_matrix, n_samples)
+                                     inferred_matrix, n_samples)
     done_idx = [i for i, k in enumerate(
                 inferred_matrix.keys()) if k == "Done"][0]
     true_counts = (true_data != done_idx).sum(axis=1)
@@ -166,7 +167,6 @@ def sample_and_plot_length_ed(x_0_post, x_post, sess, true_data,
 
     plot_length(true_counts, sampled_counts)
 
-# EXPERIMENT 3
 
 def copy_model_tfp(qpi_0, qpi_T, chain_len, n_states, sample_shape):
     """
@@ -224,20 +224,13 @@ def sample_and_plot_length_tfp(model_post, sess, true_data,
     plot_length(true_counts, sampled_counts)
 
 
-# EXPERIMENT 5
-
 def plot_multinomial_probs(inferred_matrix, states='all'):
     if states == 'all':
         states = list(inferred_matrix.columns)
     plt.figure(figsize=(15, 8))
     for s in states:
-        # plt.plot(list(range(inferred_matrix.shape[0])), inferred_matrix[states], label=states)
         plt.plot(inferred_matrix[s], label=s)
     plt.legend()
     plt.xlabel('Age of loan (months)')
     plt.ylabel('Probability of each state')
     plt.show()
-
-if __name__ == '__main__':
-    series = pd.Series(['Current', 'Late', 'Default'])
-    graph_trajectory(series)
