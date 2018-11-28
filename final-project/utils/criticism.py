@@ -224,6 +224,20 @@ def sample_and_plot_length_tfp(model_post, sess, true_data,
     plot_length(true_counts, sampled_counts)
 
 
+# EXPERIMENT 5
+
+def plot_multinomial_probs(inferred_matrix, states='all'):
+    if states == 'all':
+        states = list(inferred_matrix.columns)
+    plt.figure(figsize=(15, 8))
+    for s in states:
+        # plt.plot(list(range(inferred_matrix.shape[0])), inferred_matrix[states], label=states)
+        plt.plot(inferred_matrix[s], label=s)
+    plt.legend()
+    plt.xlabel('Age of loan (months)')
+    plt.ylabel('Probability of each state')
+    plt.show()
+
 if __name__ == '__main__':
     series = pd.Series(['Current', 'Late', 'Default'])
     graph_trajectory(series)
